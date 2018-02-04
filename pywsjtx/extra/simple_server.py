@@ -9,32 +9,43 @@ import socket
 import struct
 import pywsjtx
 import logging
+import ipaddress
 
 class SimpleServer(object):
     logger = logging.getLogger()
     MAX_BUFFER_SIZE = pywsjtx.GenericWSJTXPacket.MAXIMUM_NETWORK_MESSAGE_SIZE
     DEFAULT_UDP_PORT = 2237
     #
-    # note that '' and '127.0.0.1' behave differently. On Windows, try '' instead of 127.0.0.1 if you're not receiving any packets.
     #
-    def __init__(self, ip_address='', udp_port=DEFAULT_UDP_PORT, **kwargs):
+    def __init__(self, ip_address='127.0.0.1', udp_port=DEFAULT_UDP_PORT, **kwargs):
         self.timeout = None
 
         if kwargs.get("timeout") is not None:
             self.timeout = kwargs.get("timeout")
 
-        self.sock = socket.socket(socket.AF_INET,  # Internet
-                             socket.SOCK_DGRAM)  # UDP
+        the_address = ipaddress.ip_address(ip_address)
+        if not the_address.is_multicast:
+            self.sock = socket.socket(socket.AF_INET,  # Internet
+                                 socket.SOCK_DGRAM)  # UDP
 
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            self.sock.bind((ip_address, int(udp_port)))
+        else:
+            self.multicast_setup(ip_address, udp_port)
 
         if self.timeout is not None:
             self.sock.settimeout(self.timeout)
 
-        self.sock.bind((ip_address, int(udp_port)))
+    def multicast_setup(self, group, port=''):
 
-    # can through a sock.timeout exception if it's configured that way.
+
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind(('', port))
+        mreq = struct.pack("4sl", socket.inet_aton(group), socket.INADDR_ANY)
+        self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+
     def rx_packet(self):
         pkt, addr_port = self.sock.recvfrom(self.MAX_BUFFER_SIZE)  # buffer size is 1024 bytes
         return(pkt, addr_port)

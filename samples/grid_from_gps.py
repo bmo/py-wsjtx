@@ -119,7 +119,7 @@ def example_callback(new_grid):
 
 sgps = SerialGPS()
 
-s = pywsjtx.extra.simple_server.SimpleServer()
+s = pywsjtx.extra.simple_server.SimpleServer('224.1.1.1',5007)
 
 print("Starting wsjt-x message server")
 
