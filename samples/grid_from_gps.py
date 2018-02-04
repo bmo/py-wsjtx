@@ -1,28 +1,39 @@
+
+# simple example to open a com port (using pyserial) to read NMEA sentences from an attached GPS,
+# and supply the grid value to wsjtx.
+
 # using standard NMEA sentences
 import os
 import sys
 import threading
 from datetime import datetime
-
 import serial
+import logging
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pywsjtx
 import pywsjtx.extra.simple_server
 import pywsjtx.extra.latlong_to_grid_square
 
+# Windows communications port we're using.
+# TODO: gpsd on linux
+
+COMPORT = 'COM8'
+logging.basicConfig(level=logging.DEBUG)
+
 class NMEALocation(object):
     # parse the NMEA message for location into a grid square
+
     def __init__(self, grid_changed_callback = None):
         self.valid = False
-        self.grid = ""
+        self.grid = ""                  # this is an attribute, so allegedly doesn't need locking when used with multiple threads.
         self.last_fix_at = None
         self.grid_changed_callback = grid_changed_callback
 
     def handle_serial(self,text):
         # should be a single line.
         if text.startswith('$GPGLL'):
-            print('nmea sentence: ', text)
+            logging.debug('nmea sentence: {}'.format(text.rstrip()))
             grid = pywsjtx.extra.latlong_to_grid_square.LatLongToGridSquare.GPGLL_to_grid(text)
 
             if grid != "":
@@ -32,7 +43,7 @@ class NMEALocation(object):
                 self.valid = False
 
             if  self.grid != grid:
-                print("NMEA = grid mismatch old: {} new: {}".format(self.grid,grid))
+                logging.debug("NMEALocation - grid mismatch old: {} new: {}".format(self.grid,grid))
                 self.grid = grid
                 if (self.grid_changed_callback):
                     c_thr = threading.Thread(target=self.grid_changed_callback, args=(grid,), kwargs={})
@@ -41,12 +52,10 @@ class NMEALocation(object):
 class SerialGPS(object):
 
     def __init__(self):
-        # TODO arbitrate access to line_handlers[]
         self.line_handlers = []
         self.comm_thread = None
         self.comm_device = None
         self.stop_signalled = False
-        pass
 
     def add_handler(self, line_handler):
         if (not (line_handler is None)) and (not (line_handler in self.line_handlers)):
@@ -80,6 +89,7 @@ class SerialGPS(object):
                 return # terminate
             line = self.comm_device.readline()
             # dispatch the line
+            # note that bytes are used for readline, vs strings after the decode to utf-8
             if line.startswith(b'$'):
                 str_line = line.decode("utf-8")
                 for p in self.line_handlers:
@@ -96,7 +106,6 @@ class SerialGPS(object):
 # if we have a grid, and it's not the same as GPS, then make it the same by sending the message.
 # But only do that if triggered by a status message.
 
-# rinse and repeat -- wait for a status message. Once we have a status message, see if
 
 wsjtx_id = None
 nmea_p = None
@@ -126,7 +135,7 @@ while True:
             wsjtx_id = the_packet.wsjtx_id
             # start up the GPS reader
             nmea_p = NMEALocation(example_callback)
-            sgps.open('COM8', 9600, nmea_p.handle_serial, timeout=1.0)
+            sgps.open(COMPORT, 9600, nmea_p.handle_serial, timeout=1.2)
 
         if type(the_packet) == pywsjtx.StatusPacket:
             if gps_grid != "" and the_packet.de_grid != gps_grid:
