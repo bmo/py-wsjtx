@@ -19,6 +19,8 @@ import pywsjtx.extra.latlong_to_grid_square
 # TODO: gpsd on linux
 
 COMPORT = 'COM8'
+IP_ADDRESS = '224.1.1.1'
+PORT = 5007
 logging.basicConfig(level=logging.DEBUG)
 
 class NMEALocation(object):
@@ -119,7 +121,7 @@ def example_callback(new_grid):
 
 sgps = SerialGPS()
 
-s = pywsjtx.extra.simple_server.SimpleServer('224.1.1.1',5007)
+s = pywsjtx.extra.simple_server.SimpleServer(IP_ADDRESS,PORT)
 
 print("Starting wsjt-x message server")
 
