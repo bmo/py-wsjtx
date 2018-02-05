@@ -6,6 +6,7 @@ import pywsjtx.extra.simple_server
 s = pywsjtx.extra.simple_server.SimpleServer('127.0.0.1','2237',timeout=2.0)
 
 while True:
+
     (pkt, addr_port) = s.rx_packet()
     if (pkt != None):
         the_packet = pywsjtx.WSJTXPacketClassFactory.from_udp_packet(addr_port, pkt)

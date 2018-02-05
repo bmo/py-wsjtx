@@ -47,8 +47,12 @@ class SimpleServer(object):
         self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 
     def rx_packet(self):
-        pkt, addr_port = self.sock.recvfrom(self.MAX_BUFFER_SIZE)  # buffer size is 1024 bytes
-        return(pkt, addr_port)
+        try:
+            pkt, addr_port = self.sock.recvfrom(self.MAX_BUFFER_SIZE)  # buffer size is 1024 bytes
+            return(pkt, addr_port)
+        except socket.timeout:
+            logging.debug("rx_packet: socket.timeout")
+            return (None, None)
 
     def send_packet(self, addr_port, pkt):
         bytes_sent = self.sock.sendto(pkt,addr_port)
