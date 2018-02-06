@@ -44,7 +44,7 @@ class NMEALocation(object):
             else:
                 self.valid = False
 
-            if  self.grid != grid:
+            if grid != "" and self.grid != grid:
                 logging.debug("NMEALocation - grid mismatch old: {} new: {}".format(self.grid,grid))
                 self.grid = grid
                 if (self.grid_changed_callback):
@@ -93,9 +93,12 @@ class SerialGPS(object):
             # dispatch the line
             # note that bytes are used for readline, vs strings after the decode to utf-8
             if line.startswith(b'$'):
-                str_line = line.decode("utf-8")
-                for p in self.line_handlers:
-                    p(str_line)
+                try:
+                    str_line = line.decode("utf-8")
+                    for p in self.line_handlers:
+                        p(str_line)
+                except UnicodeDecodeError as ex:
+                    logging.debug("serial_worker: {} - line: {}".format(ex,[hex(c) for c in line]))
 
     @classmethod
     def example_line_handler(cls, text):
@@ -143,7 +146,7 @@ while True:
             if gps_grid != "" and the_packet.de_grid != gps_grid:
                 print("Sending Grid Change to wsjtx-x, old grid:{} new grid: {}".format(the_packet.de_grid, gps_grid))
                 grid_change_packet = pywsjtx.LocationChangePacket.Builder(wsjtx_id, "GRID:"+gps_grid)
-                print(pywsjtx.PacketUtil.hexdump(grid_change_packet))
+                logging.debug(pywsjtx.PacketUtil.hexdump(grid_change_packet))
                 s.send_packet(the_packet.addr_port, grid_change_packet)
                 # for fun, change the TX5 message to our grid square, so we don't have to call CQ again
                 # this only works if the length of the free text message is less than 13 characters.

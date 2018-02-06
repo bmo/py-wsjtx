@@ -2,7 +2,7 @@
 
 class GPSException(Exception):
     def __init__(self,*args):
-        Exception.__init__(*args)
+        super(GPSException, self).__init__(*args)
 
 # From K6WRU via stackexchange : see https://ham.stackexchange.com/questions/221/how-can-one-convert-from-lat-long-to-grid-square/244#244
 # Convert latitude and longitude to Maidenhead grid locators.

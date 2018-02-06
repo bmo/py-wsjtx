@@ -3,7 +3,13 @@ import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pywsjtx.extra.simple_server
 
-s = pywsjtx.extra.simple_server.SimpleServer('127.0.0.1','2237',timeout=2.0)
+#IP_ADDRESS = '224.1.1.1'
+#PORT = 5007
+
+IP_ADDRESS = '127.0.0.1'
+PORT = 2237
+
+s = pywsjtx.extra.simple_server.SimpleServer(IP_ADDRESS, PORT, timeout=2.0)
 
 while True:
 
