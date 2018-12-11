@@ -2,6 +2,7 @@
 import struct
 import datetime
 
+
 class PacketUtil:
     @classmethod
     # this hexdump brought to you by Stack Overflow
@@ -22,6 +23,7 @@ class PacketUtil:
         utcmidnight = datetime.datetime(utcnow.year, utcnow.month, utcnow.day, 0, 0)
         return utcmidnight
 
+
 class PacketWriter(object):
     def __init__(self ):
         self.ptr_pos = 0
@@ -36,6 +38,18 @@ class PacketWriter(object):
     def write_QInt8(self, val):
         self.packet.extend(struct.pack('>b', val))
 
+    def write_QUInt8(self, val):
+        self.packet.extend(struct.pack('>B', val))
+
+    def write_QBool(self, val):
+        self.packet.extend(struct.pack('>?', val))
+
+    def write_QInt16(self, val):
+        self.packet.extend(struct.pack('>h', val))
+
+    def write_QUInt16(self, val):
+        self.packet.extend(struct.pack('>H', val))
+
     def write_QInt32(self, val):
         self.packet.extend(struct.pack('>l',val))
 
@@ -46,15 +60,35 @@ class PacketWriter(object):
         self.packet.extend(struct.pack('>q',val))
 
     def write_QFloat(self, val):
-        self.packet.extent(struct.pack('>d', val))
+        self.packet.extend(struct.pack('>d', val))
 
     def write_QString(self, str_val):
-        length = len(str_val)
-        self.write_QInt32(length)
+
         b_values = str_val
         if type(str_val) != bytes:
             b_values = str_val.encode()
+        length = len(b_values)
+        self.write_QInt32(length)
         self.packet.extend(b_values)
+
+    def write_QColor(self, color_val):
+        # see Qt serialization for QColor format; unfortunately thes serialization is nothing like what's in that.
+        #  It's not correct. Look instead at the wsjt-x configuration settings, where
+        #  color values have been serialized.
+        #
+        self.write_QInt8(color_val.spec)
+        self.write_QUInt8(color_val.alpha)
+        self.write_QUInt8(color_val.alpha)
+
+        self.write_QUInt8(color_val.red)
+        self.write_QUInt8(color_val.red)
+
+        self.write_QUInt8(color_val.green)
+        self.write_QUInt8(color_val.green)
+
+        self.write_QUInt8(color_val.blue)
+        self.write_QUInt8(color_val.blue)
+        self.write_QUInt16(0)
 
 class PacketReader(object):
     def __init__(self, packet):
@@ -81,6 +115,7 @@ class PacketReader(object):
         (the_int32,) = struct.unpack('>l',self.packet[self.ptr_pos:self.ptr_pos+4])
         self.ptr_pos += 4
         return the_int32
+
 
     def QInt8(self):
         self.check_ptr_bound('QInt8', 1)
@@ -110,13 +145,12 @@ class PacketReader(object):
         return str.decode('utf-8')
 
 class GenericWSJTXPacket(object):
-    SCHEMA_VERSION = 2
+    SCHEMA_VERSION = 3
     MINIMUM_SCHEMA_SUPPORTED = 2
-    MAXIMUM_SCHEMA_SUPPORTED = 2
+    MAXIMUM_SCHEMA_SUPPORTED = 3
     MINIMUM_NETWORK_MESSAGE_SIZE = 8
     MAXIMUM_NETWORK_MESSAGE_SIZE = 2048
     MAGIC_NUMBER = 0xadbccbda
-    SCHEMA_VERSION = 2
 
     def __init__(self, addr_port, magic, schema, pkt_type, id, pkt):
         self.addr_port = addr_port
@@ -149,8 +183,8 @@ class HeartBeatPacket(GenericWSJTXPacket):
         self.revision = ps.QInt8()
 
     def __repr__(self):
-        return 'HeartBeatPacket: from {}:{}\n\twsjtx id:{}\tmax_schema:{}\tversion:{}\trevision:{}' .format(self.addr_port[0], self.addr_port[1],
-                                                                                                      self.wsjtx_id, self.max_schema, self.version, self.revision)
+        return 'HeartBeatPacket: from {}:{}\n\twsjtx id:{}\tmax_schema:{}\tschema:{}\tversion:{}\trevision:{}' .format(self.addr_port[0], self.addr_port[1],
+                                                                                                      self.wsjtx_id, self.max_schema, self.schema, self.version, self.revision)
     @classmethod
     # make a heartbeat packet (a byte array) we can send to a 'client'. This should be it's own class.
     def Builder(cls,wsjtx_id='pywsjtx', max_schema=2, version=1, revision=1):
@@ -194,13 +228,15 @@ class StatusPacket(GenericWSJTXPacket):
         self.sub_mode = ps.QString()
         self.fast_mode = ps.QInt8()
 
+        # new in wsjtx-2.0.0
+        self.special_op_mode = ps.QInt8()
 
     def __repr__(self):
         str =  'StatusPacket: from {}:{}\n\twsjtx id:{}\tde_call:{}\tde_grid:{}\n'.format(self.addr_port[0], self.addr_port[1],self.wsjtx_id,
                                                                                                  self.de_call, self.de_grid)
         str += "\tfrequency:{}\trx_df:{}\ttx_df:{}\tdx_call:{}\tdx_grid:{}\treport:{}\n".format(self.dial_frequency, self.rx_df, self.tx_df, self.dx_call, self.dx_grid, self.report)
-        str += "\ttransmitting:{}\t decoding:{}\ttx_enabled:{}\ttx_watchdog:{}\tsub_mode:{}\tfast_mode:{}".format(self.transmitting, self.decoding, self.tx_enabled, self.tx_watchdog,
-                                                                                                                  self.sub_mode, self.fast_mode)
+        str += "\ttransmitting:{}\t decoding:{}\ttx_enabled:{}\ttx_watchdog:{}\tsub_mode:{}\tfast_mode:{}\tspecial_op_mode:{}".format(self.transmitting, self.decoding, self.tx_enabled, self.tx_watchdog,
+                                                                                                                  self.sub_mode, self.fast_mode, self.special_op_mode)
         return str
 
 
@@ -308,6 +344,41 @@ class LocationChangePacket(GenericWSJTXPacket):
         pkt.write_QInt32(LocationChangePacket.TYPE_VALUE)
         pkt.write_QString(to_wsjtx_id)
         pkt.write_QString(new_grid)
+        return pkt.packet
+
+class LoggedADIFPacket(GenericWSJTXPacket):
+    TYPE_VALUE = 12
+    def __init__(self, addr_port, magic, schema, pkt_type, id, pkt):
+        GenericWSJTXPacket.__init__(self, addr_port, magic, schema, pkt_type, id, pkt)
+        # handle packet-specific stuff.
+
+    @classmethod
+    def Builder(cls, to_wsjtx_id='WSJT-X', adif_text=""):
+        # build the packet to send
+        pkt = PacketWriter()
+        pkt.write_QInt32(LoggedADIFPacket.TYPE_VALUE)
+        pkt.write_QString(to_wsjtx_id)
+        pkt.write_QString(adif_text)
+        return pkt.packet
+
+class HighlightCallsignPacket(GenericWSJTXPacket):
+    TYPE_VALUE = 13
+    def __init__(self, addr_port, magic, schema, pkt_type, id, pkt):
+        GenericWSJTXPacket.__init__(self, addr_port, magic, schema, pkt_type, id, pkt)
+        # handle packet-specific stuff.
+
+    # the callsign field can contain text, callsigns, entire lines.
+
+    @classmethod
+    def Builder(cls, to_wsjtx_id='WSJT-X', callsign="K1JT", background_color=None, foreground_color=None, highlight_last_only=True ):
+        # build the packet to send
+        pkt = PacketWriter()
+        pkt.write_QInt32(HighlightCallsignPacket.TYPE_VALUE)
+        pkt.write_QString(to_wsjtx_id)
+        pkt.write_QString(callsign)
+        pkt.write_QColor(background_color)
+        pkt.write_QColor(foreground_color)
+        pkt.write_QBool(highlight_last_only)
         return pkt.packet
 
 class WSJTXPacketClassFactory(GenericWSJTXPacket):
