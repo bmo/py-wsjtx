@@ -36,11 +36,17 @@ while True:
                 callsign = m.group(1)
 
                 color_pkt = pywsjtx.HighlightCallsignPacket.Builder(the_packet.wsjtx_id, callsign,
-                                                                    pywsjtx.QCOLOR.RGBA(255,random.randint(0,255),random.randint(0,255),random.randint(0,255)),
-                                                                    pywsjtx.QCOLOR.RGBA(255,random.randint(0,255),random.randint(0,255),random.randint(0,255)),
+
+                                                                    pywsjtx.QCOLOR.Red(),
+                                                                    pywsjtx.QCOLOR.White(),
+                                                                    True)
+
+                normal_pkt = pywsjtx.HighlightCallsignPacket.Builder(the_packet.wsjtx_id, callsign,
+                                                                    pywsjtx.QCOLOR.Uncolor(),
+                                                                    pywsjtx.QCOLOR.Uncolor(),
                                                                     True)
                 s.send_packet(addr_port, color_pkt)
-                print(pywsjtx.PacketUtil.hexdump(color_pkt))
+                #print(pywsjtx.PacketUtil.hexdump(color_pkt))
         print(the_packet)
 
 
