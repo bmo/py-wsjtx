@@ -41,6 +41,23 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import pywsjtx
 import pywsjtx.extra.simple_server
 
+#
+# TODO - listen for UDP packets from N1MM for logged QSOs to use as source of packets; process those and add to the queue, so colorization happens in somewhat realtime
+# TODO - Interpret callsigns calling me <mycall> <theircall> to look up & colorize
+#           K1ABC W9XYZ EN42
+# TODO - Watch exchanges in general build table of callsigns and exchanges so we can find mults that way
+#           K1ABC W9XYZ 579 IL
+#           K1ABC W9XYZ R 559 IL
+# ------------------- File picker instead of constant?
+#import tkinter as tk
+#from tkinter import filedialog
+
+#root = tk.Tk()
+#root.withdraw()
+
+#file_path = filedialog.askopenfilename(title = "Select N1MM Database file to use",filetypes = (("N1MM Database File","*.s3db"),("all files","*.*")))
+
+# -- TODO put these in separate files.
 #--- N1MM-related
 class N1MMLoggerPlus():
     database_path = None
@@ -263,22 +280,6 @@ def main():
 
     cw = CallsignWorker(1, cty, N1MM_DB_FILE,{'contestnr':CONTESTNR})
 
-    #print(n1mm.simple_dupe_status('K8AA'))
-    #print(n1mm.simple_dupe_status('N9ADG'))
-
-    #cw.input_queue.put('K8AA')
-    #cw.input_queue.put('N9ADG')
-
-    #callsign_prefix = cty.prefix_for('N9ADG')
-    #n1mm.prefix_worked_count(callsign_prefix)
-    #callsign_prefix = cty.prefix_for('ZS80VT')
-    #n1mm.prefix_worked_count(callsign_prefix)
-
-    #callsign_prefix = cty.prefix_for('ZS80XX')
-    #print("found prefix {}".format(callsign_prefix))
-    #n1mm.prefix_worked_count(callsign_prefix)
-
-
     # get a callsign
     # put on queue
 
@@ -307,19 +308,6 @@ def main():
                     print("Callsign {}".format(callsign))
 
                     cw.input_queue.put(callsign)
-
-                    #color_pkt = pywsjtx.HighlightCallsignPacket.Builder(the_packet.wsjtx_id, callsign,
-
-                    #                                                    pywsjtx.QCOLOR.White(),
-                    #                                                    pywsjtx.QCOLOR.Red(),
-                    #                                                    True)
-
-                    #normal_pkt = pywsjtx.HighlightCallsignPacket.Builder(the_packet.wsjtx_id, callsign,
-                    #                                                     pywsjtx.QCOLOR.Uncolor(),
-                    #                                                     pywsjtx.QCOLOR.Uncolor(),
-                    #                                                     True)
-                    #s.send_packet(addr_port, color_pkt)
-                    # print(pywsjtx.PacketUtil.hexdump(color_pkt))
             print(the_packet)
 
         # service queue
@@ -341,7 +329,7 @@ def main():
                 s.send_packet(addr_port, color_pkt)
 
             if not resolved['is_mult'] and not resolved['dupe']:
-                pywsjtx.HighlightCallsignPacket.Builder(the_packet.wsjtx_id, callsign,
+                color_pkt = pywsjtx.HighlightCallsignPacket.Builder(the_packet.wsjtx_id, callsign,
                                                         pywsjtx.QCOLOR.Uncolor(),
                                                         pywsjtx.QCOLOR.Uncolor(),
                                                         True)
