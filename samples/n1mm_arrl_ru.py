@@ -247,7 +247,8 @@ class CallsignWorker:
             is_mult = not dupe_status and n1mm.prefix_worked_count(prefix)==0
             input_pkt['dupe'] = dupe_status
             input_pkt['is_mult'] = is_mult
-            logging.debug("Callsign status {}".format(input_pkt))
+            input_pkt['prefix'] = prefix
+            logging.debug("Thread: {} - Callsign status {} prefix:{} dupe:{} mult:{}".format(threading.current_thread().name, input_pkt['callsign'], prefix, dupe_status, is_mult, ))
             self.output_queue.put(input_pkt)
 
 def main():
@@ -275,7 +276,7 @@ def main():
 
     # take calls that are CQing, or replying, etc. and colorize them after the dupe check
 
-    cw = CallsignWorker(1, cty, N1MM_DB_FILE,{'contestnr':CONTESTNR})
+    cw = CallsignWorker(4, cty, N1MM_DB_FILE,{'contestnr':CONTESTNR})
 
     # get a callsign
     # put on queue
@@ -310,7 +311,7 @@ def main():
 
         while not cw.output_queue.empty():
             resolved = cw.output_queue.get(False)
-            print("Resolved packet available {}".format(resolved))
+            print("Resolved packet available callsign:{}, dupe:{}, mult:{}".format(resolved['callsign'], resolved['dupe'], resolved['is_mult']))
             wsjtx_id = resolved['input'].wsjtx_id
             if resolved['dupe']:
                 color_pkt = pywsjtx.HighlightCallsignPacket.Builder(wsjtx_id, resolved['callsign'],
