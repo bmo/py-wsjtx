@@ -239,19 +239,16 @@ class CallsignWorker:
         n1mm.get_contest(**self.n1mm_args)
 
         while True:
-            callsign = self.input_queue.get()
-            if callsign is None:
+            input_pkt = self.input_queue.get()
+            if input_pkt is None:
                 break
-            prefix = self.cty.prefix_for(callsign)
-            dupe_status = n1mm.simple_dupe_status(callsign)
+            prefix = self.cty.prefix_for(input_pkt['callsign'])
+            dupe_status = n1mm.simple_dupe_status(input_pkt['callsign'])
             is_mult = not dupe_status and n1mm.prefix_worked_count(prefix)==0
-            r = {
-                    'callsign': callsign,
-                    'dupe': dupe_status,
-                    'is_mult': is_mult
-            }
-            logging.debug("Callsign status {}".format(r))
-            self.output_queue.put(r)
+            input_pkt['dupe'] = dupe_status
+            input_pkt['is_mult'] = is_mult
+            logging.debug("Callsign status {}".format(input_pkt))
+            self.output_queue.put(input_pkt)
 
 def main():
     logFormatter = logging.Formatter("%(asctime)s [%(threadName)-12.12s]  %(message)s")
@@ -290,13 +287,12 @@ def main():
     dupe_background_color = pywsjtx.QCOLOR.RGBA(255,211,211,211) # light grey
     dupe_foreground_color = pywsjtx.QCOLOR.RGBA(255,169,169,169) # dark grey
 
-    wsjtx_id = None
+
     while True:
 
         (pkt, addr_port) = s.rx_packet()
         if (pkt != None):
             the_packet = pywsjtx.WSJTXPacketClassFactory.from_udp_packet(addr_port, pkt)
-            wsjtx_id = the_packet.wsjtx_id
             if type(the_packet) == pywsjtx.HeartBeatPacket:
                 max_schema = max(the_packet.max_schema, MY_MAX_SCHEMA)
                 reply_beat_packet = pywsjtx.HeartBeatPacket.Builder(the_packet.wsjtx_id, max_schema)
@@ -307,7 +303,7 @@ def main():
                     callsign = m.group(1)
                     print("Callsign {}".format(callsign))
 
-                    cw.input_queue.put(callsign)
+                    cw.input_queue.put({'callsign':callsign, 'input':the_packet, 'addr_port':addr_port})
             print(the_packet)
 
         # service queue
@@ -315,25 +311,26 @@ def main():
         while not cw.output_queue.empty():
             resolved = cw.output_queue.get(False)
             print("Resolved packet available {}".format(resolved))
+            wsjtx_id = resolved['input'].wsjtx_id
             if resolved['dupe']:
                 color_pkt = pywsjtx.HighlightCallsignPacket.Builder(wsjtx_id, resolved['callsign'],
                                                                     dupe_background_color,
                                                                     dupe_foreground_color,
                                                                     True)
-                s.send_packet(addr_port, color_pkt)
+                s.send_packet(resolved['addr_port'], color_pkt)
             if resolved['is_mult']:
                 color_pkt = pywsjtx.HighlightCallsignPacket.Builder(wsjtx_id, resolved['callsign'],
                                                                     mult_background_color,
                                                                     mult_foreground_color,
                                                                     True)
-                s.send_packet(addr_port, color_pkt)
+                s.send_packet(resolved['addr_port'], color_pkt)
 
             if not resolved['is_mult'] and not resolved['dupe']:
-                color_pkt = pywsjtx.HighlightCallsignPacket.Builder(the_packet.wsjtx_id, callsign,
+                color_pkt = pywsjtx.HighlightCallsignPacket.Builder(wsjtx_id, resolved['callsign'],
                                                         pywsjtx.QCOLOR.Uncolor(),
                                                         pywsjtx.QCOLOR.Uncolor(),
                                                         True)
-                s.send_packet(addr_port, color_pkt)
+                s.send_packet(resolved['addr_port'], color_pkt)
 
 if __name__ == "__main__":
         main()
