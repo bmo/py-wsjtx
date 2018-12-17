@@ -37,8 +37,8 @@ while True:
 
                 color_pkt = pywsjtx.HighlightCallsignPacket.Builder(the_packet.wsjtx_id, callsign,
 
-                                                                    pywsjtx.QCOLOR.Red(),
                                                                     pywsjtx.QCOLOR.White(),
+                                                                    pywsjtx.QCOLOR.Red(),
                                                                     True)
 
                 normal_pkt = pywsjtx.HighlightCallsignPacket.Builder(the_packet.wsjtx_id, callsign,

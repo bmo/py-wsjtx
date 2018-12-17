@@ -56,7 +56,7 @@ class SimpleServer(object):
 
     def send_packet(self, addr_port, pkt):
         bytes_sent = self.sock.sendto(pkt,addr_port)
-        self.logger.debug("send_packet: Bytes sent ",bytes_sent)
+        self.logger.debug("send_packet: Bytes sent {} ".format(bytes_sent))
 
     def demo_run(self):
         while True:
