@@ -7,5 +7,7 @@ Sample programs for:
   * Coloring callsigns in WSJT-X based on N1MM Logger+ dupe and multiplier status
   
   
-Example screen display for colorized callsigns:
-![WSJT-X with colorized callsigns](https://github.com/bmo/py-wsjtx/raw/master/images/colorized_wsjtx.PNG | height=400)
+Example screen display for colorized callsigns, showing a new country multiplier in red:
+
+<img src="https://github.com/bmo/py-wsjtx/raw/master/images/colorized_wsjtx.PNG" height="400">
+
