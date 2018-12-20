@@ -26,6 +26,7 @@ else:
 
 MY_MAX_SCHEMA = 3
 
+LOOKUP_THREADS = 4
 
 import sqlite3
 import os
@@ -184,7 +185,7 @@ class Cty:
         # lookup the callsign in the CTY file data, return the prefix.
         prefixes = [k for k in self.table.keys() if k==callsign[0:len(k)] or k=="={}".format(callsign)]
         prefixes.sort(key = lambda s: 100-len(s))
-        print("Prefixes {}".format(prefixes))
+        #print("Prefixes {}".format(prefixes))
         found_prefix = None
         # exact matches first
         unique_call = [ c for c in prefixes if c.startswith('=')]
@@ -276,28 +277,29 @@ def main():
 
     # take calls that are CQing, or replying, etc. and colorize them after the dupe check
 
-    cw = CallsignWorker(4, cty, N1MM_DB_FILE,{'contestnr':CONTESTNR})
+    cw = CallsignWorker(LOOKUP_THREADS, cty, N1MM_DB_FILE,{'contestnr':CONTESTNR})
 
     # get a callsign
     # put on queue
 
     s = pywsjtx.extra.simple_server.SimpleServer(IP_ADDRESS, PORT, timeout=2.0)
-    mult_foreground_color =  pywsjtx.QCOLOR.Black()
+    mult_foreground_color =  pywsjtx.QCOLOR.White()
     mult_background_color =  pywsjtx.QCOLOR.Red()
 
     dupe_background_color = pywsjtx.QCOLOR.RGBA(255,211,211,211) # light grey
     dupe_foreground_color = pywsjtx.QCOLOR.RGBA(255,169,169,169) # dark grey
-
 
     while True:
 
         (pkt, addr_port) = s.rx_packet()
         if (pkt != None):
             the_packet = pywsjtx.WSJTXPacketClassFactory.from_udp_packet(addr_port, pkt)
+
             if type(the_packet) == pywsjtx.HeartBeatPacket:
                 max_schema = max(the_packet.max_schema, MY_MAX_SCHEMA)
                 reply_beat_packet = pywsjtx.HeartBeatPacket.Builder(the_packet.wsjtx_id, max_schema)
                 s.send_packet(addr_port, reply_beat_packet)
+
             if type(the_packet) == pywsjtx.DecodePacket:
                 m = re.match(r"^CQ\s+(\S{3,}?)\s+", the_packet.message) or re.match(r"^CQ\s+\S{2}\s+(\S{3,}?)\s+", the_packet.message)
                 if m:
@@ -313,12 +315,14 @@ def main():
             resolved = cw.output_queue.get(False)
             print("Resolved packet available callsign:{}, dupe:{}, mult:{}".format(resolved['callsign'], resolved['dupe'], resolved['is_mult']))
             wsjtx_id = resolved['input'].wsjtx_id
+
             if resolved['dupe']:
                 color_pkt = pywsjtx.HighlightCallsignPacket.Builder(wsjtx_id, resolved['callsign'],
                                                                     dupe_background_color,
                                                                     dupe_foreground_color,
                                                                     True)
                 s.send_packet(resolved['addr_port'], color_pkt)
+
             if resolved['is_mult']:
                 color_pkt = pywsjtx.HighlightCallsignPacket.Builder(wsjtx_id, resolved['callsign'],
                                                                     mult_background_color,
