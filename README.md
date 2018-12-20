@@ -8,4 +8,4 @@ Sample programs for:
   
   
 Example screen display for colorized callsigns:
-![WSJT-X with colorized callsigns](https://github.com/bmo/py-wsjtx/images/colorized_wsjtx.PNG)
+![WSJT-X with colorized callsigns](https://github.com/bmo/py-wsjtx/raw/master/images/colorized_wsjtx.PNG)
