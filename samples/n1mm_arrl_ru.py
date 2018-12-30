@@ -120,6 +120,17 @@ class N1MMLoggerPlus():
         rows = c.fetchall()
         return rows[0]['C']
 
+    def sections_for_prefix(self, country_prefix):
+        if self.n1mm_sql_connection is None:
+            raise Exception("N1MM database is not open")
+
+        c = self.n1mm_sql_connection.cursor()
+        c.execute('select DISTINCT sect from dxlog where ContestNR = ? AND CountryPrefix=? AND IsMultiplier1<>0  ORDER BY sect ASC', (self.contestnr, country_prefix,))
+        rows = c.fetchall()
+        sections = [ item['sect'] for item in rows ]
+        return sections
+
+
 class Cty:
     cty_file_location = None
     table = {}
@@ -203,6 +214,86 @@ class Cty:
 
         return found_prefix
 
+from threading import RLock
+class StateProvinceKeeper:
+
+
+
+
+
+    class __OnlyOne:
+
+        #__already_worked = []
+        def __init__(self):
+            self.__already_worked = []
+            self.logger = logging.getLogger(__name__)
+            self.lock = RLock()
+
+        def already_worked(self, section):
+            self.lock.acquire()
+            try:
+                self.logger.debug("Checking section {}".format(section))
+                rval = (section in self.__already_worked)
+            finally:
+                self.lock.release()
+            return rval
+
+        def update_already_worked(self, new_list):
+            self.lock.acquire()
+            try:
+                self.logger.debug("Updating logged sections {}".format(new_list))
+                self.__already_worked = new_list.copy()
+            finally:
+                self.lock.release()
+
+    instance = None
+
+    def __new__(cls):
+        if not StateProvinceKeeper.instance:
+             StateProvinceKeeper.instance = StateProvinceKeeper.__OnlyOne()
+        return StateProvinceKeeper.instance
+
+
+
+    def __init__(self,st_pr_db_file_name,**kwargs):
+        self.db_file_name = st_pr_db_file_name
+        self.logger = kwargs.get("logger", logging.getLogger(__name__))
+        self.create_db_if_needed()
+        self.sql_connection = None
+
+    def open_db(self):
+        if self.sql_connection is not None:
+            logging.error("Database is already open [{}]".format(self.db_file_name))
+            raise Exception("Database is already open [{}]".format(self.db_file_name))
+
+        cx = sqlite3.connect(self.db_file_name)
+        cx.row_factory = sqlite3.Row
+        self.sql_connection = cx
+
+    def create_db_if_needed(self):
+        if os.path.isfile(self.db_file_name) == False:
+            self.logger.info("Creating DB in {}".format(self.db_file_name))
+            cx = sqlite3.connect(self.db_file_name)
+            cx.row_factory = sqlite3.Row
+            db_connection = cx
+            cx.execute("CREATE TABLE IF NOT EXISTS SECTION_MULTS (CountryPrefix Text Not NULL, Sect Text NOT NULL, Call Not Null);")
+            cx.execute("CREATE UNIQUE INDEX idx_call ON SECTION_MULTS(Call);")
+            cx.execute("CREATE INDEX idx_sect ON SECTION_MULTS(Sect);")
+            cx.execute("CREATE INDEX idx_prefix ON SECTION_MULTS(CountryPrefix);")
+            cx.close()
+
+    def section_for(self,call):
+        c = self.sql_connection.cursor()
+        c.execute("SELECT Sect from SECTION_MULTS where Call = ?;",(call,))
+        rows = c.fetchall()
+        if len(rows)==0:
+            return None
+        return rows[0]['Sect']
+
+    def add(self, call, prefix, section):
+        c = self.sql_connection.cursor()
+        c.execute("REPLACE INTO SECTION_MULTS(call, CountryPrefix, sect) VALUES( ?, ?, ?);",(call, prefix, section,) )
+
 class CallsignWorker:
     threads = []
     def __init__(self, threadcount, cty, n1mm_db_file_name, n1mm_args, **kwargs ):
@@ -274,7 +365,20 @@ def main():
     n1mm = N1MMLoggerPlus(N1MM_DB_FILE,logger=logging.getLogger())
     n1mm.open_db()
     n1mm.get_contest(contestnr=CONTESTNR)
+    already_worked = n1mm.sections_for_prefix('K')
 
+    #print("Sections {}".format(n1mm.sections_for_prefix('K')))
+    #print("VE Sections {}".format(n1mm.sections_for_prefix('VE')))
+    #tp = StateProvinceKeeper("SectionMults.s3db")
+    #stp = StateProvinceKeeper()
+    #stp.update_already_worked(already_worked)
+    #print("AZ already worked? {}".format(stp.already_worked("AZ")))
+    #stp.open_db()
+    #stp.add('N9ADG','K','WA')
+    #stp.add('K9CT','K','IL')
+    #print("K9CT's section {}".format(stp.section_for('K9CT')))
+
+    return(-1)
     # take calls that are CQing, or replying, etc. and colorize them after the dupe check
 
     cw = CallsignWorker(LOOKUP_THREADS, cty, N1MM_DB_FILE,{'contestnr':CONTESTNR})
