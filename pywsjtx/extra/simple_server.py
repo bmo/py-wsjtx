@@ -19,6 +19,7 @@ class SimpleServer(object):
     #
     def __init__(self, ip_address='127.0.0.1', udp_port=DEFAULT_UDP_PORT, **kwargs):
         self.timeout = None
+        self.verbose = kwargs.get("verbose",False)
 
         if kwargs.get("timeout") is not None:
             self.timeout = kwargs.get("timeout")
@@ -38,8 +39,6 @@ class SimpleServer(object):
             self.sock.settimeout(self.timeout)
 
     def multicast_setup(self, group, port=''):
-
-
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind(('', port))
@@ -51,7 +50,8 @@ class SimpleServer(object):
             pkt, addr_port = self.sock.recvfrom(self.MAX_BUFFER_SIZE)  # buffer size is 1024 bytes
             return(pkt, addr_port)
         except socket.timeout:
-            logging.debug("rx_packet: socket.timeout")
+            if self.verbose:
+                logging.debug("rx_packet: socket.timeout")
             return (None, None)
 
     def send_packet(self, addr_port, pkt):
