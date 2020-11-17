@@ -144,6 +144,23 @@ class PacketReader(object):
         self.ptr_pos += str_len
         return str.decode('utf-8')
 
+    def QDateTime(self):
+        date = self.QInt64()
+        time = self.QInt32()
+        spec = self.QInt8()
+        offset = self.QInt32()
+        return QDateTime(date,time,spec,offset)
+
+class QDateTime(object):
+    def __init__(self,date,time,spec,offset):
+        self.date=date
+        self.time=time
+        self.spec=spec
+        self.offset=offset
+
+    def __repr__(self):
+        return "date {}\n\ttime {}\n\tspec {}\n\toffset {}".format(self.date,self.time,self.spec,self.offset)
+
 class GenericWSJTXPacket(object):
     SCHEMA_VERSION = 3
     MINIMUM_SCHEMA_SUPPORTED = 2
@@ -284,11 +301,60 @@ class ReplyPacket(GenericWSJTXPacket):
         GenericWSJTXPacket.__init__(self, addr_port, magic, schema, pkt_type, id, pkt)
         # handle packet-specific stuff.
 
+    @classmethod
+    def Builder(cls, decode_packet):
+        # build the packet to send
+        pkt = PacketWriter()
+        pkt.write_QInt32(ReplyPacket.TYPE_VALUE)
+        pkt.write_QString(decode_packet.wsjtx_id)
+        pkt.write_QInt32(decode_packet.millis_since_midnight)
+        pkt.write_QInt32(decode_packet.snr)
+        pkt.write_QFloat(decode_packet.delta_t)
+        pkt.write_QInt32(decode_packet.delta_f)
+        pkt.write_QString(decode_packet.mode)
+        pkt.write_QString(decode_packet.message)
+        pkt.write_QInt8(decode_packet.low_confidence)
+        pkt.write_QInt8(0)
+        return pkt.packet
+
+
 class QSOLoggedPacket(GenericWSJTXPacket):
     TYPE_VALUE = 5
     def __init__(self, addr_port, magic, schema, pkt_type, id, pkt):
         GenericWSJTXPacket.__init__(self, addr_port, magic, schema, pkt_type, id, pkt)
         # handle packet-specific stuff.
+        print("PKT",pkt)
+        ps = PacketReader(pkt)
+        the_type = ps.QInt32()
+        self.wsjtx_id = ps.QString()
+        self.datetime_off = ps.QDateTime()
+        self.call = ps.QString()
+        self.grid = ps.QString()
+        self.frequency = ps.QInt64()
+        self.mode = ps.QString()
+        self.report_sent = ps.QString()
+        self.report_recv = ps.QString()
+        self.tx_power = ps.QString()
+        self.comments = ps.QString()
+        self.name = ps.QString()
+        self.datetime_on = ps.QDateTime()
+        self.op_call = ps.QString()
+        self.my_call = ps.QString()
+        self.my_grid = ps.QString()
+        self.exchange_sent = ps.QString()
+        self.exchange_recv = ps.QString()
+        self.adif_prop_mode = ps.QString()
+
+    def __repr__(self):
+        str = 'QSOLoggedPacket: call {} @ {}\n\tdatetime:{}\tfreq:{}\n'.format(self.call,
+                                                                             self.grid,
+                                                                             self.datetime_off,
+                                                                             self.frequency)
+        str += "\tmode:{}\tsent:{}\trecv:{}".format(self.mode,
+                                                    self.report_sent,
+                                                    self.report_recv)
+        return str
+
 
 class ClosePacket(GenericWSJTXPacket):
     TYPE_VALUE = 6
