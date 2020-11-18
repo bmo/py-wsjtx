@@ -1,6 +1,7 @@
 
 import struct
 import datetime
+import math
 
 
 class PacketUtil:
@@ -22,6 +23,34 @@ class PacketUtil:
         utcnow = datetime.datetime.utcnow()
         utcmidnight = datetime.datetime(utcnow.year, utcnow.month, utcnow.day, 0, 0)
         return utcmidnight
+
+    #converts a Julian day to a calendar Date
+    @classmethod
+    def JDToDateMeeus(cls,jDNum):
+        F=0.0
+
+        jDNum += 0.5
+        Z = jDNum  #Z == int so I = int part
+        F = jDNum - Z  #F =  fractional part
+        if(Z < 2299161):  #Julian?
+            A = Z
+        else:  #Gregorian
+            alpha = math.floor((Z - 1867216.25) / 36524.25)
+            A = Z + 1 + alpha - math.floor(alpha / 4.0)
+        B = A + 1524
+        C = math.floor((B - 122.1) /365.25)
+        D = math.floor(365.25 * C)
+        E = math.floor((B - D) /30.6001)
+        day = int(B - D - math.floor(30.6001 * E) + F)
+        if( E < 14):
+            month = E - 1
+        else:
+            month = E - 13
+        if(month > 2):
+            year = C - 4716
+        else:
+            year = C - 4715
+        return (year,month,day)
 
 
 class PacketWriter(object):
@@ -145,10 +174,14 @@ class PacketReader(object):
         return str.decode('utf-8')
 
     def QDateTime(self):
-        date = self.QInt64()
-        time = self.QInt32()
+        jdnum = self.QInt64()
+        millis_since_midnight = self.QInt32()
         spec = self.QInt8()
-        offset = self.QInt32()
+        offset = 0
+        if spec == 2:
+            offset = self.QInt32()
+        date = PacketUtil.JDToDateMeeus(jdnum)
+        time = PacketUtil.midnight_utc() + datetime.timedelta(milliseconds=millis_since_midnight)
         return QDateTime(date,time,spec,offset)
 
 class QDateTime(object):
@@ -323,7 +356,6 @@ class QSOLoggedPacket(GenericWSJTXPacket):
     def __init__(self, addr_port, magic, schema, pkt_type, id, pkt):
         GenericWSJTXPacket.__init__(self, addr_port, magic, schema, pkt_type, id, pkt)
         # handle packet-specific stuff.
-        print("PKT",pkt)
         ps = PacketReader(pkt)
         the_type = ps.QInt32()
         self.wsjtx_id = ps.QString()
@@ -343,7 +375,6 @@ class QSOLoggedPacket(GenericWSJTXPacket):
         self.my_grid = ps.QString()
         self.exchange_sent = ps.QString()
         self.exchange_recv = ps.QString()
-        self.adif_prop_mode = ps.QString()
 
     def __repr__(self):
         str = 'QSOLoggedPacket: call {} @ {}\n\tdatetime:{}\tfreq:{}\n'.format(self.call,
