@@ -1,6 +1,7 @@
 
 import struct
 import datetime
+import math
 
 
 class PacketUtil:
@@ -22,6 +23,34 @@ class PacketUtil:
         utcnow = datetime.datetime.utcnow()
         utcmidnight = datetime.datetime(utcnow.year, utcnow.month, utcnow.day, 0, 0)
         return utcmidnight
+
+    #converts a Julian day to a calendar Date
+    @classmethod
+    def JDToDateMeeus(cls,jDNum):
+        F=0.0
+
+        jDNum += 0.5
+        Z = jDNum  #Z == int so I = int part
+        F = jDNum - Z  #F =  fractional part
+        if(Z < 2299161):  #Julian?
+            A = Z
+        else:  #Gregorian
+            alpha = math.floor((Z - 1867216.25) / 36524.25)
+            A = Z + 1 + alpha - math.floor(alpha / 4.0)
+        B = A + 1524
+        C = math.floor((B - 122.1) /365.25)
+        D = math.floor(365.25 * C)
+        E = math.floor((B - D) /30.6001)
+        day = int(B - D - math.floor(30.6001 * E) + F)
+        if( E < 14):
+            month = E - 1
+        else:
+            month = E - 13
+        if(month > 2):
+            year = C - 4716
+        else:
+            year = C - 4715
+        return (year,month,day)
 
 
 class PacketWriter(object):
@@ -143,6 +172,27 @@ class PacketReader(object):
         (str,) = struct.unpack('{}s'.format(str_len), self.packet[self.ptr_pos:self.ptr_pos + str_len])
         self.ptr_pos += str_len
         return str.decode('utf-8')
+
+    def QDateTime(self):
+        jdnum = self.QInt64()
+        millis_since_midnight = self.QInt32()
+        spec = self.QInt8()
+        offset = 0
+        if spec == 2:
+            offset = self.QInt32()
+        date = PacketUtil.JDToDateMeeus(jdnum)
+        time = PacketUtil.midnight_utc() + datetime.timedelta(milliseconds=millis_since_midnight)
+        return QDateTime(date,time,spec,offset)
+
+class QDateTime(object):
+    def __init__(self,date,time,spec,offset):
+        self.date=date
+        self.time=time
+        self.spec=spec
+        self.offset=offset
+
+    def __repr__(self):
+        return "date {}\n\ttime {}\n\tspec {}\n\toffset {}".format(self.date,self.time,self.spec,self.offset)
 
 class GenericWSJTXPacket(object):
     SCHEMA_VERSION = 3
@@ -284,11 +334,58 @@ class ReplyPacket(GenericWSJTXPacket):
         GenericWSJTXPacket.__init__(self, addr_port, magic, schema, pkt_type, id, pkt)
         # handle packet-specific stuff.
 
+    @classmethod
+    def Builder(cls, decode_packet):
+        # build the packet to send
+        pkt = PacketWriter()
+        pkt.write_QInt32(ReplyPacket.TYPE_VALUE)
+        pkt.write_QString(decode_packet.wsjtx_id)
+        pkt.write_QInt32(decode_packet.millis_since_midnight)
+        pkt.write_QInt32(decode_packet.snr)
+        pkt.write_QFloat(decode_packet.delta_t)
+        pkt.write_QInt32(decode_packet.delta_f)
+        pkt.write_QString(decode_packet.mode)
+        pkt.write_QString(decode_packet.message)
+        pkt.write_QInt8(decode_packet.low_confidence)
+        pkt.write_QInt8(0)
+        return pkt.packet
+
+
 class QSOLoggedPacket(GenericWSJTXPacket):
     TYPE_VALUE = 5
     def __init__(self, addr_port, magic, schema, pkt_type, id, pkt):
         GenericWSJTXPacket.__init__(self, addr_port, magic, schema, pkt_type, id, pkt)
         # handle packet-specific stuff.
+        ps = PacketReader(pkt)
+        the_type = ps.QInt32()
+        self.wsjtx_id = ps.QString()
+        self.datetime_off = ps.QDateTime()
+        self.call = ps.QString()
+        self.grid = ps.QString()
+        self.frequency = ps.QInt64()
+        self.mode = ps.QString()
+        self.report_sent = ps.QString()
+        self.report_recv = ps.QString()
+        self.tx_power = ps.QString()
+        self.comments = ps.QString()
+        self.name = ps.QString()
+        self.datetime_on = ps.QDateTime()
+        self.op_call = ps.QString()
+        self.my_call = ps.QString()
+        self.my_grid = ps.QString()
+        self.exchange_sent = ps.QString()
+        self.exchange_recv = ps.QString()
+
+    def __repr__(self):
+        str = 'QSOLoggedPacket: call {} @ {}\n\tdatetime:{}\tfreq:{}\n'.format(self.call,
+                                                                             self.grid,
+                                                                             self.datetime_off,
+                                                                             self.frequency)
+        str += "\tmode:{}\tsent:{}\trecv:{}".format(self.mode,
+                                                    self.report_sent,
+                                                    self.report_recv)
+        return str
+
 
 class ClosePacket(GenericWSJTXPacket):
     TYPE_VALUE = 6
