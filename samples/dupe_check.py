@@ -95,6 +95,8 @@ while True:
         if type(the_packet) == pywsjtx.StatusPacket:
             dial_frequency = the_packet.dial_frequency
             MYCALL = the_packet.de_call
+            if MYCALL.find('/') >= 0:
+                MYCALL = '<' + MYCALL + '>'
 
         if type(the_packet) == pywsjtx.HeartBeatPacket:
             max_schema = max(the_packet.max_schema, MY_MAX_SCHEMA)
@@ -117,6 +119,14 @@ while True:
                 dupe_score = calculate_dupe_score(band_for(dial_frequency), dupe_tuples)
                 # I just like saying "dupe tuple" in my head
                 print("{} Dupe Score on {} is {} - {}\n".format(callsign, band_for(dial_frequency), dupe_score, dupe_tuples))
+
+                if dupe_score > 2000:
+                    color_pkt = pywsjtx.HighlightCallsignPacket.Builder(the_packet.wsjtx_id, callsign,
+
+                                                                   pywsjtx.QCOLOR.Red(),
+                                                                   pywsjtx.QCOLOR.White(),  # RGBA(255, 50, 137, 48 ),
+                                                                   False)
+                    s.send_packet(addr_port, color_pkt)
 
                 if dupe_score > 0:
                     annotate_pkt = pywsjtx.AnnotateCallsignPacket.Builder(the_packet.wsjtx_id
