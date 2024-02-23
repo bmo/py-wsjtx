@@ -7,10 +7,12 @@ import pywsjtx.extra.simple_server
 import re
 
 TEST_MULTICAST = True
-MATCH_MY_CALL = True  # use False to get packets for any call, useful for debugging
+MATCH_MY_CALL = True        # use False to get packets for any call, useful for debugging
+SPECIFIC_CONTEST = None     # if this is set to a number, use that as ContestNR in the query below, otherwise make None
+# if no specific contest is specified, the query will look for ALL CONTACTS in ALL CONTESTS in the given database file
 
-# N1MM database to check against
-DBFILE = '/Users/brianmoran/Documents/T88WA/T88WA/COMBINED/t88wa_superset.s3db'
+# N1MM database file to check against
+DBFILE = 'C:\\Users\\Brian Moran\\Documents\\N1MM Logger+\\Databases\\ham.s3db'
 
 MYCALL = 'N9ADG'    # this will get updated from the status packets
 dial_frequency = 14074000  # this will get updated from the status packets
@@ -19,14 +21,14 @@ dial_frequency = 14074000  # this will get updated from the status packets
 
 if TEST_MULTICAST:
     IP_ADDRESS = '224.1.1.1'
-    PORT = 5007
+    PORT = 2237
 else:
     IP_ADDRESS = '127.0.0.1'
     PORT = 2237
 
 MY_MAX_SCHEMA = 3
 
-s = pywsjtx.extra.simple_server.SimpleServer(IP_ADDRESS, PORT, timeout=2.0)
+s = pywsjtx.extra.simple_server.SimpleServer(IP_ADDRESS, PORT, timeout=2.0, interface='127.0.0.1')
 def get_db():
     db = sqlite3.connect(DBFILE)
     return db
@@ -34,7 +36,11 @@ def get_db():
 def lookup_dupe_status(callsign):
     db = get_db()
     c = db.cursor()
-    c.execute("SELECT mode, band, count(*)  FROM DXLOG WHERE call = ? AND ContestNR <> -1 group by band, mode", (callsign,))
+    if SPECIFIC_CONTEST:
+        column_constraint = 'AND ContestNR == {}'.format(SPECIFIC_CONTEST)
+    else:
+        column_constraint = ''
+    c.execute("SELECT mode, band, count(*)  FROM DXLOG WHERE call = ? AND ContestNR  <> -1 {column_constraint} group by band, mode".format(column_constraint = column_constraint), (callsign,))
     return c.fetchall()
 
 def calculate_dupe_score(current_band, all_records):
@@ -82,6 +88,10 @@ test_data = [('FT8', 7.0, 1), ('CW', 10.0, 1), ('FT8', 14.0, 1), ('FT8', 18.0, 1
 test_band = 7.0
 print("Dupe score for data {} {}".format(test_band, calculate_dupe_score(test_band, test_data)))
 #exit(0);
+
+# Try one lookup to make sure the DB is working; this will fail if something is not right
+lookup_dupe_status('N9ADG')
+
 while True:
     (pkt, addr_port) = s.rx_packet()
     if addr_port is None:
@@ -120,7 +130,7 @@ while True:
                 # I just like saying "dupe tuple" in my head
                 print("{} Dupe Score on {} is {} - {}\n".format(callsign, band_for(dial_frequency), dupe_score, dupe_tuples))
 
-                if dupe_score > 2000:
+                if dupe_score >= 2000:
                     color_pkt = pywsjtx.HighlightCallsignPacket.Builder(the_packet.wsjtx_id, callsign,
 
                                                                    pywsjtx.QCOLOR.Red(),
