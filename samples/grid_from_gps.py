@@ -18,9 +18,14 @@ import pywsjtx.extra.latlong_to_grid_square
 # Windows communications port we're using.
 # TODO: gpsd on linux
 
-COMPORT = 'COM8'
-IP_ADDRESS = '224.1.1.1'
-PORT = 5007
+COMPORT = 'COM7'
+# Set 'COM7' to the com port number of your GPS.  Example 'COM9'
+COMPORTBAUDRATE = '9600'
+# Set '9600' to the baud rate for your GPS com port. Usually 4800, 9600, 19200, 38400, etc.  Example '19200'
+IP_ADDRESS = '127.0.0.1'
+# Set '127.0.0.1' to the IP address where this script should inject the grid.  Example: If you are running both this script and WSJT-X on the same machine, set this to '127.0.0.1' both here AND in WSJT-X Settings>Reporting>UDP Server>UDP Server (In the WSJT-X UDP Server settings, there will be no quotes ' around the IP address.)
+PORT = 2237
+# Set '2237' to the IP address where this script should inject the grid.  Example: If you are running both this script and WSJT-X on the same machine, set this to '2237' both here AND in WSJT-X Settings>Reporting>UDP Server>UDP Server Port Number (In the WSJT-X UDP Server settings, there will be no quotes ' around the port number.)
 logging.basicConfig(level=logging.DEBUG)
 
 class NMEALocation(object):
@@ -33,10 +38,25 @@ class NMEALocation(object):
         self.grid_changed_callback = grid_changed_callback
 
     def handle_serial(self,text):
-        # should be a single line.
         if text.startswith('$GPGLL'):
             logging.debug('nmea sentence: {}'.format(text.rstrip()))
             grid = pywsjtx.extra.latlong_to_grid_square.LatLongToGridSquare.GPGLL_to_grid(text)
+
+            if grid != "":
+                self.valid = True
+                self.last_fix_at = datetime.utcnow()
+            else:
+                self.valid = False
+
+            if grid != "" and self.grid != grid:
+                logging.debug("NMEALocation - grid mismatch old: {} new: {}".format(self.grid,grid))
+                self.grid = grid
+                if (self.grid_changed_callback):
+                    c_thr = threading.Thread(target=self.grid_changed_callback, args=(grid,), kwargs={})
+                    c_thr.start()
+        elif text.startswith('$GPGGA'):
+            logging.debug('nmea sentence: {}'.format(text.rstrip()))
+            grid = pywsjtx.extra.latlong_to_grid_square.LatLongToGridSquare.GPGGA_to_grid(text)
 
             if grid != "":
                 self.valid = True
@@ -140,7 +160,7 @@ while True:
             wsjtx_id = the_packet.wsjtx_id
             # start up the GPS reader
             nmea_p = NMEALocation(example_callback)
-            sgps.open(COMPORT, 9600, nmea_p.handle_serial, timeout=1.2)
+            sgps.open(COMPORT, COMPORTBAUDRATE, nmea_p.handle_serial, timeout=1.2)
 
         if type(the_packet) == pywsjtx.StatusPacket:
             if gps_grid != "" and the_packet.de_grid != gps_grid:
