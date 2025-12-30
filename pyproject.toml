@@ -17,4 +17,4 @@ Home = "https://github.com/misaka19465/py-wsjtx"
 Source = "https://github.com/misaka19465/py-wsjtx"
 
 [tool.setuptools]
-packages = { find = { where = ["."] } }
+packages = ["pywsjtx"]
