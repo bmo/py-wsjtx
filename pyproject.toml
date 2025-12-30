@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pywsjtx"
+version = "0.0.1"
+description = "A python module to interpret and create WSJT-X UDP packets"
+readme = "README.md"
+requires-python = ">=3.6"
+license = { text = "MIT" }
+authors = [ { name = "Brian Moran" } ]
+dependencies = []
+
+[project.urls]
+Home = "https://github.com/misaka19465/py-wsjtx"
+Source = "https://github.com/misaka19465/py-wsjtx"
+
+[tool.setuptools]
+packages = { find = { where = ["."] } }
