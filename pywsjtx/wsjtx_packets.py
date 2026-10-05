@@ -3,15 +3,8 @@ import struct
 import datetime
 import math
 
-class QCOLOR:
-    def __init__(self, alpha = 0xff, red = 0xff, green = 0xff, blue = 0xff):
-        self.valid = False
-        self.spec = 0;
-        self.terminator = 0;
-        self.alpha = alpha;
-        self.red = red;
-        self.blue = green;
-        self.green = blue;
+# One class for Qt colors (pywsjtx.QCOLOR): used to write colors into packets and returned by PacketReader.QColor()
+from .qcolor import QCOLOR
 
 class PacketUtil:
     @classmethod
@@ -165,6 +158,18 @@ class PacketReader(object):
         (the_int8,) = struct.unpack('>b', self.packet[self.ptr_pos:self.ptr_pos+1])
         self.ptr_pos += 1
         return the_int8
+
+    def QUInt8(self):
+        self.check_ptr_bound('QUInt8', 1)
+        (the_uint8,) = struct.unpack('>B', self.packet[self.ptr_pos:self.ptr_pos+1])
+        self.ptr_pos += 1
+        return the_uint8
+
+    def QInt16(self):
+        self.check_ptr_bound('QInt16', 2)
+        (the_int16,) = struct.unpack('>h', self.packet[self.ptr_pos:self.ptr_pos+2])
+        self.ptr_pos += 2
+        return the_int16
 
     def QInt64(self):
         self.check_ptr_bound('QInt64', 8)

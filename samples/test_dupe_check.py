@@ -68,5 +68,36 @@ class AnnotateBuilder(unittest.TestCase):
         self.assertEqual(self.fields(packet)[3], 0)
 
 
+class QColorRoundTrip(unittest.TestCase):
+    """ PacketReader.QColor() reads back what HighlightCallsignPacket.Builder writes. """
+
+    def read_colors(self, background, foreground):
+        from pywsjtx.wsjtx_packets import PacketReader
+        packet = dupe_check.pywsjtx.HighlightCallsignPacket.Builder('WSJT-X', 'K1ABC', background, foreground, False)
+        r = PacketReader(packet)
+        r.QInt32(), r.QString()
+        self.assertEqual(r.QString(), 'K1ABC')
+        return r.QColor(), r.QColor()
+
+    def rgba(self, color):
+        return (color.spec, color.alpha, color.red, color.green, color.blue)
+
+    def test_named_colors(self):
+        QCOLOR = dupe_check.pywsjtx.QCOLOR
+        background, foreground = self.read_colors(QCOLOR.Red(), QCOLOR.White())
+        self.assertEqual(self.rgba(background), (QCOLOR.SPEC_RGB, 255, 255, 0, 0))
+        self.assertEqual(self.rgba(foreground), (QCOLOR.SPEC_RGB, 255, 255, 255, 255))
+
+    def test_rgba_keeps_green_and_blue_apart(self):
+        QCOLOR = dupe_check.pywsjtx.QCOLOR
+        background, _ = self.read_colors(QCOLOR.RGBA(200, 10, 20, 30), QCOLOR.Black())
+        self.assertEqual(self.rgba(background), (QCOLOR.SPEC_RGB, 200, 10, 20, 30))
+
+    def test_no_color(self):
+        QCOLOR = dupe_check.pywsjtx.QCOLOR
+        background, _ = self.read_colors(QCOLOR.Uncolor(), QCOLOR.Uncolor())
+        self.assertEqual(background.spec, QCOLOR.SPEC_INVALID)
+
+
 if __name__ == '__main__':
     unittest.main()
