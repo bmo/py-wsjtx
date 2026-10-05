@@ -20,6 +20,7 @@ class SimpleServer(object):
     def __init__(self, ip_address='127.0.0.1', udp_port=DEFAULT_UDP_PORT, **kwargs):
         self.timeout = None
         self.verbose = kwargs.get("verbose",False)
+        self.interface = kwargs.get("interface", None)
 
         if kwargs.get("timeout") is not None:
             self.timeout = kwargs.get("timeout")
@@ -33,17 +34,22 @@ class SimpleServer(object):
             self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             self.sock.bind((ip_address, int(udp_port)))
         else:
-            self.multicast_setup(ip_address, udp_port)
+            self.multicast_setup(ip_address, udp_port, interface=self.interface)
 
         if self.timeout is not None:
             self.sock.settimeout(self.timeout)
 
-    def multicast_setup(self, group, port=''):
+    def multicast_setup(self, group, port='', interface=None):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind(('', port))
-        mreq = struct.pack("4sl", socket.inet_aton(group), socket.INADDR_ANY)
-        self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        if interface is not None:
+            print("Interface is {}".format(interface))
+            mreq = struct.pack("4s4s", socket.inet_aton(group), socket.inet_aton(interface))
+            self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
+        else:
+            mreq = struct.pack("4sl", socket.inet_aton(group), socket.INADDR_ANY)
+            self.sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
 
     def rx_packet(self):
         try:

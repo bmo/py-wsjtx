@@ -21,6 +21,9 @@ class QCOLOR:
         return QCOLOR(QCOLOR.SPEC_RGB, 255, 255, 0, 0)
 
     @classmethod
+    def Green(cls):
+        return QCOLOR(QCOLOR.SPEC_RGB, 255, 0, 255, 0)
+    @classmethod
     def RGBA(cls, alpha, red, green, blue):
         return QCOLOR(QCOLOR.SPEC_RGB, alpha, red, green, blue)
 

@@ -1,0 +1,41 @@
+# dupe_check.py settings. Copy this file to dupe_check.cfg (beside dupe_check.py) and edit it.
+# How to set up WSJT-X and start dupe_check: see dupe_check.md.
+# Every setting is optional; what's shown is the default.
+
+[n1mm]
+# The N1MM Logger+ database to check callsigns against. Blank: the database N1MM has open, read from its
+# "N1MM Logger.ini". dupe_check only reads it (read-only), so it's safe while N1MM is running.
+#database = C:\Users\you\Documents\N1MM Logger+\Databases\ham.s3db
+
+# Which log in that database: all (every log - "worked before, ever"), current (the log N1MM has open), or a log
+# number. python dupe_check.py --pick lists them; --pick --save-config writes your choice here.
+contest_nr = all
+
+# Where N1MM keeps its ini file, if not in Documents\N1MM Logger+
+#ini = C:\Users\you\Documents\N1MM Logger+\N1MM Logger.ini
+
+[wsjtx]
+# Where WSJT-X sends its UDP messages: WSJT-X Settings > Reporting > UDP Server.
+#
+# A message WSJT-X sends to one address (like 127.0.0.1:2237) reaches only ONE program on this computer. N1MM's
+# own WSJT-X support listens on 127.0.0.1:2237, so if N1MM is getting WSJT-X's messages there, dupe_check can't
+# have them too. The way round it is multicast: set WSJT-X's UDP Server to a multicast group such as 224.1.1.1
+# (any number of programs can join it), use that here, and run wsjtx_packet_exchanger.py to pass the messages on
+# to N1MM at 127.0.0.1:2237 (see the comments at the top of that sample).
+address = 224.1.1.1
+port = 2237
+# for multicast: the network interface to listen on (127.0.0.1 = this computer only); blank for any
+interface = 127.0.0.1
+
+[dupe_check]
+# true: only look up stations calling you ("YOURCALL THEIRCALL ..."); false: look up the station sending every
+# decoded message, CQs included ("CQ DX K1ABC FN42" -> K1ABC)
+match_my_call = true
+# true: earlier FT4 QSOs on this band count like FT8 ones (so the station is shown in red); false: FT4 counts as
+# another mode, like CW or SSB
+include_ft4 = false
+# true: print every callsign as it's looked up, so you can see dupe_check working ("not in log" included);
+# false: print only callsigns already worked. --no-show-lookups and -l / --show-lookups override this.
+show_lookups = true
+# true: print every WSJT-X message
+verbose = false

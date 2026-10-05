@@ -3,6 +3,8 @@ import struct
 import datetime
 import math
 
+# One class for Qt colors (pywsjtx.QCOLOR): used to write colors into packets and returned by PacketReader.QColor()
+from .qcolor import QCOLOR
 
 class PacketUtil:
     @classmethod
@@ -145,12 +147,29 @@ class PacketReader(object):
         self.ptr_pos += 4
         return the_int32
 
+    def QUInt32(self):
+        self.check_ptr_bound('QUInt32', 4)   # sure we could inspect that, but that is slow.
+        (the_uint32,) = struct.unpack('>L',self.packet[self.ptr_pos:self.ptr_pos+4])
+        self.ptr_pos += 4
+        return the_uint32
 
     def QInt8(self):
         self.check_ptr_bound('QInt8', 1)
         (the_int8,) = struct.unpack('>b', self.packet[self.ptr_pos:self.ptr_pos+1])
         self.ptr_pos += 1
         return the_int8
+
+    def QUInt8(self):
+        self.check_ptr_bound('QUInt8', 1)
+        (the_uint8,) = struct.unpack('>B', self.packet[self.ptr_pos:self.ptr_pos+1])
+        self.ptr_pos += 1
+        return the_uint8
+
+    def QInt16(self):
+        self.check_ptr_bound('QInt16', 2)
+        (the_int16,) = struct.unpack('>h', self.packet[self.ptr_pos:self.ptr_pos+2])
+        self.ptr_pos += 2
+        return the_int16
 
     def QInt64(self):
         self.check_ptr_bound('QInt64', 8)
@@ -172,6 +191,38 @@ class PacketReader(object):
         (str,) = struct.unpack('{}s'.format(str_len), self.packet[self.ptr_pos:self.ptr_pos + str_len])
         self.ptr_pos += str_len
         return str.decode('utf-8')
+
+    def QColor(self):
+        try:
+            spec = self.QInt8()
+
+            alpha = self.QUInt8()
+            alpha2 = self.QUInt8()
+            if alpha != alpha2:
+                raise Exception('Invalid QColor alpha value')
+
+            red = self.QUInt8()
+            red2 = self.QUInt8()
+            if red != red2:
+                raise Exception('Invalid QColor red value')
+
+            green = self.QUInt8()
+            green2 = self.QUInt8()
+            if green != green2:
+                raise Exception('Invalid QColor green value')
+
+            blue = self.QUInt8()
+            blue2 = self.QUInt8()
+            if blue != blue2:
+                raise Exception('Invalid QColor blue value')
+            terminator = self.QInt16()
+            if terminator != 0:
+                raise Exception('Invalid QColor terminator value')
+
+        except struct.error:
+            raise Exception('No data for QCOLOR value')
+
+        return QCOLOR(spec, alpha, red, green, blue)
 
     def QDateTime(self):
         jdnum = self.QInt64()
@@ -252,6 +303,9 @@ class StatusPacket(GenericWSJTXPacket):
     def __init__(self, addr_port, magic, schema, pkt_type, id, pkt):
         GenericWSJTXPacket.__init__(self, addr_port, magic, schema, pkt_type, id, pkt)
         ps = PacketReader(pkt)
+        self.highlighted_calls = 0xffffffff;
+        self.annotated_calls = 0xffffffff;
+
         the_type = ps.QInt32()
         self.wsjtx_id = ps.QString()
         self.dial_frequency = ps.QInt64()
@@ -278,15 +332,24 @@ class StatusPacket(GenericWSJTXPacket):
         self.sub_mode = ps.QString()
         self.fast_mode = ps.QInt8()
 
-        # new in wsjtx-2.0.0
         self.special_op_mode = ps.QInt8()
+        self.frequency_tolerance = ps.QUInt32()
+        self.tr_period = ps.QUInt32()
+        self.configuration_name = ps.QString()
+        self.tx_message = ps.QString()
+
+        if ps.at_eof():
+            return
+
+        self.highlighted_calls = ps.QUInt32()
+        self.annotated_calls = ps.QUInt32()
 
     def __repr__(self):
         str =  'StatusPacket: from {}:{}\n\twsjtx id:{}\tde_call:{}\tde_grid:{}\n'.format(self.addr_port[0], self.addr_port[1],self.wsjtx_id,
                                                                                                  self.de_call, self.de_grid)
         str += "\tfrequency:{}\trx_df:{}\ttx_df:{}\tdx_call:{}\tdx_grid:{}\treport:{}\n".format(self.dial_frequency, self.rx_df, self.tx_df, self.dx_call, self.dx_grid, self.report)
-        str += "\ttransmitting:{}\t decoding:{}\ttx_enabled:{}\ttx_watchdog:{}\tsub_mode:{}\tfast_mode:{}\tspecial_op_mode:{}".format(self.transmitting, self.decoding, self.tx_enabled, self.tx_watchdog,
-                                                                                                                  self.sub_mode, self.fast_mode, self.special_op_mode)
+        str += "\ttransmitting:{}\t decoding:{}\ttx_enabled:{}\ttx_watchdog:{}\tsub_mode:{}\tfast_mode:{}\n\tspecial_op_mode:{}\tfrequency_tolerance:{}\n".format(self.transmitting, self.decoding, self.tx_enabled, self.tx_watchdog, self.sub_mode, self.fast_mode, self.special_op_mode, self.frequency_tolerance)
+        str += "\ttr_period:{}\tconfiguration_name:{}\ttx_message:{}\n\thighlighted_calls:{}\tannotated_calls:{}\n".format(self.tr_period, self.configuration_name, self.tx_message, self.highlighted_calls, self.annotated_calls)
         return str
 
 
@@ -476,6 +539,33 @@ class HighlightCallsignPacket(GenericWSJTXPacket):
         pkt.write_QColor(background_color)
         pkt.write_QColor(foreground_color)
         pkt.write_QBool(highlight_last_only)
+        return pkt.packet
+
+class AnnotateCallsignPacket(GenericWSJTXPacket):
+    # AnnotationInfo: a number for a callsign, shown in the Score column of WSJT-X's Fox "Stations calling" list
+    # and used by its Score sort (lowest first). WSJT-X caps values at MAX_SORT_ORDER; REMOVE clears one callsign's
+    # value, and the callsign CLEAR_ALL clears every value.
+    TYPE_VALUE = 16
+    MAX_SORT_ORDER = 50000
+    REMOVE = 0xFFFFFFFF
+    CLEAR_ALL = 'CLEARALL!'
+
+    def __init__(self, addr_port, magic, schema, pkt_type, id, pkt):
+        GenericWSJTXPacket.__init__(self, addr_port, magic, schema, pkt_type, id, pkt)
+        # handle packet-specific stuff.
+
+    # the callsign field can contain text, callsigns, entire lines.
+
+    @classmethod
+    def Builder(cls, to_wsjtx_id='WSJT-X', callsign="K1JT", sort_order_provided=True, sort_order=0xFFFFFFFF):
+        # build the packet to send
+        pkt = PacketWriter()
+        pkt.write_QInt32(AnnotateCallsignPacket.TYPE_VALUE)
+        pkt.write_QString(to_wsjtx_id)
+        pkt.write_QString(callsign)
+        pkt.write_QBool(sort_order_provided)
+        pkt.write_QUInt32(sort_order)  # quint32 in WSJT-X: unsigned, so REMOVE (0xFFFFFFFF) can be sent
+
         return pkt.packet
 
 class WSJTXPacketClassFactory(GenericWSJTXPacket):
