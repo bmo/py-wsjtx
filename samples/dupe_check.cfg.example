@@ -1,4 +1,5 @@
 # dupe_check.py settings. Copy this file to dupe_check.cfg (beside dupe_check.py) and edit it.
+# How to set up WSJT-X and start dupe_check: see dupe_check.md.
 # Every setting is optional; what's shown is the default.
 
 [n1mm]
