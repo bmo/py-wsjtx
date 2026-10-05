@@ -33,5 +33,8 @@ match_my_call = true
 # true: earlier FT4 QSOs on this band count like FT8 ones (so the station is shown in red); false: FT4 counts as
 # another mode, like CW or SSB
 include_ft4 = false
+# true: print every callsign as it's looked up, so you can see dupe_check working ("not in log" included);
+# false: print only callsigns already worked. --no-show-lookups and -l / --show-lookups override this.
+show_lookups = true
 # true: print every WSJT-X message
 verbose = false

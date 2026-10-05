@@ -21,6 +21,7 @@ import re
 import socket
 import sqlite3
 import sys
+import time
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pywsjtx.extra.simple_server
@@ -29,6 +30,7 @@ import n1mm_logs
 DEFAULT_CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dupe_check.cfg')
 
 MY_MAX_SCHEMA = 3
+SILENCE_WARNING = 30       # seconds without a message from WSJT-X before saying so
 
 DEFAULTS = {
     'n1mm': {
@@ -45,6 +47,7 @@ DEFAULTS = {
         'match_my_call': 'true',   # true: only look up stations calling you; false: every decoded message
         'include_ft4': 'false',    # true: earlier FT4 QSOs count like FT8 ones; false: FT4 counts as another mode
         'verbose': 'false',        # true: print every WSJT-X message
+        'show_lookups': 'true',    # true: print every callsign as it's looked up; false: only ones already worked
     },
 }
 
@@ -165,6 +168,17 @@ def caller_in(message, my_call=None):
     return caller.strip('<>').upper()
 
 
+def lookup_line(callsign, band, score, records):
+    """ One line for a lookup: "19:56:30Z  YT0A        14 MHz  score    600  JTTY 14 MHz x2" """
+    if records:
+        found = "score {score:>6}  {qsos}".format(score=score, qsos=', '.join(
+            "{mode} {band:g} MHz x{n}".format(mode=mode, band=float(b), n=n) for mode, b, n in records))
+    else:
+        found = "not in log"
+    return "{t}Z  {call:<10}  {band:>3g} MHz  {found}".format(
+        t=time.strftime('%H:%M:%S', time.gmtime()), call=callsign, band=float(band), found=found)
+
+
 def choose_log(config, config_path, pick):
     """ Which database and log to check: (database path, contest nr or None for all logs, description). """
     ini = config.get('n1mm', 'ini') or n1mm_logs.default_ini_path()
@@ -214,12 +228,17 @@ def main():
     parser.add_argument('--pick', action='store_true', help="choose the N1MM database and log from a list")
     parser.add_argument('--save-config', action='store_true', help="with --pick: save the choice in the config file")
     parser.add_argument('-v', '--verbose', action='store_true', help="print every WSJT-X message")
+    parser.add_argument('-l', '--show-lookups', dest='show_lookups', action='store_true', default=None,
+                        help="print every callsign as it's looked up (overrides show_lookups in the config file)")
+    parser.add_argument('--no-show-lookups', dest='show_lookups', action='store_false',
+                        help="print only callsigns already worked (overrides show_lookups in the config file)")
     args = parser.parse_args()
     if args.save_config and not args.pick:
         parser.error("--save-config goes with --pick")
 
     config = load_config(args.config)
     verbose = args.verbose or config.getboolean('dupe_check', 'verbose')
+    show_lookups = args.show_lookups if args.show_lookups is not None else config.getboolean('dupe_check', 'show_lookups')
     match_my_call = config.getboolean('dupe_check', 'match_my_call')
     same_modes = ('FT8', 'FT4') if config.getboolean('dupe_check', 'include_ft4') else ('FT8',)
 
@@ -261,6 +280,8 @@ def main():
 
     my_call = None             # from WSJT-X's status messages
     cleared = set()            # (address, id) of each WSJT-X whose old scores we've cleared
+    last_heard = time.time()   # when WSJT-X last sent anything (start counting from now)
+    warned = False             # said "nothing from WSJT-X" for the current quiet spell
     dial_frequency = 14074000  # likewise
     try:
         while True:
@@ -268,7 +289,15 @@ def main():
             if addr_port is None:
                 if verbose:
                     print(".")
+                if not warned and time.time() - last_heard >= SILENCE_WARNING:
+                    warned = True
+                    print("Nothing from WSJT-X for {n} seconds on {a}:{p}. Is WSJT-X running, and is its UDP Server"
+                          " (Settings > Reporting) set to {a}, port {p}?".format(n=SILENCE_WARNING, a=address, p=port), flush=True)
                 continue
+            last_heard = time.time()
+            if warned:
+                warned = False
+                print("Hearing WSJT-X now (from {a}:{p}).".format(a=addr_port[0], p=addr_port[1]), flush=True)
             if pkt is None:
                 continue
             the_packet = pywsjtx.WSJTXPacketClassFactory.from_udp_packet(addr_port, pkt)
@@ -307,8 +336,8 @@ def main():
                     dupe_tuples = dupes.lookup(callsign)
                     dupe_score = calculate_dupe_score(band, dupe_tuples, same_modes)
                     # I just like saying "dupe tuple" in my head
-                    if dupe_score > 0 or verbose:
-                        print("{} Dupe Score on {} is {} - {}".format(callsign, band, dupe_score, dupe_tuples))
+                    if dupe_score > 0 or show_lookups or verbose:
+                        print(lookup_line(callsign, band, dupe_score, dupe_tuples), flush=True)
 
                     if dupe_score >= 2000:
                         color_pkt = pywsjtx.HighlightCallsignPacket.Builder(the_packet.wsjtx_id, callsign,

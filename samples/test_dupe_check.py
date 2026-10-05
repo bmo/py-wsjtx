@@ -41,6 +41,15 @@ class Scoring(unittest.TestCase):
         self.assertEqual(dupe_check.band_for(7074000), 7)
 
 
+class LookupLine(unittest.TestCase):
+    def test_worked(self):
+        line = dupe_check.lookup_line('YT0A', 14, 600, [('JTTY', 14.0, 2)])
+        self.assertRegex(line, r'^\d\d:\d\d:\d\dZ  YT0A +14 MHz  score +600  JTTY 14 MHz x2$')
+
+    def test_not_in_log(self):
+        self.assertRegex(dupe_check.lookup_line('K1XYZ', 1.8, 0, []), r'Z  K1XYZ +1\.8 MHz  not in log$')
+
+
 class AnnotateBuilder(unittest.TestCase):
     """ pywsjtx's AnnotateCallsignPacket.Builder must match WSJT-X's AnnotationInfo: id, callsign, bool, quint32. """
 
