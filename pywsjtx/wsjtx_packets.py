@@ -440,7 +440,14 @@ class HighlightCallsignPacket(GenericWSJTXPacket):
         return pkt.packet
 
 class AnnotateCallsignPacket(GenericWSJTXPacket):
+    # AnnotationInfo: a number for a callsign, shown in the Score column of WSJT-X's Fox "Stations calling" list
+    # and used by its Score sort (lowest first). WSJT-X caps values at MAX_SORT_ORDER; REMOVE clears one callsign's
+    # value, and the callsign CLEAR_ALL clears every value.
     TYPE_VALUE = 16
+    MAX_SORT_ORDER = 50000
+    REMOVE = 0xFFFFFFFF
+    CLEAR_ALL = 'CLEARALL!'
+
     def __init__(self, addr_port, magic, schema, pkt_type, id, pkt):
         GenericWSJTXPacket.__init__(self, addr_port, magic, schema, pkt_type, id, pkt)
         # handle packet-specific stuff.
@@ -454,8 +461,8 @@ class AnnotateCallsignPacket(GenericWSJTXPacket):
         pkt.write_QInt32(AnnotateCallsignPacket.TYPE_VALUE)
         pkt.write_QString(to_wsjtx_id)
         pkt.write_QString(callsign)
-        pkt.write_QBool(True)
-        pkt.write_QInt32(sort_order)
+        pkt.write_QBool(sort_order_provided)
+        pkt.write_QUInt32(sort_order)  # quint32 in WSJT-X: unsigned, so REMOVE (0xFFFFFFFF) can be sent
 
         return pkt.packet
 
