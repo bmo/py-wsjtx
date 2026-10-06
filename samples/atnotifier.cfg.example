@@ -1,0 +1,47 @@
+# atnotifier.py settings. Copy this file to atnotifier.cfg (beside atnotifier.py) and edit it.
+# How to set up WSJT-X and start ATNOtifier: see atnotifier.md.
+# Every setting is optional; what's shown is the default.
+
+[n1mm]
+# The N1MM Logger+ database to check callsigns against. Blank: the database N1MM has open, read from its
+# "N1MM Logger.ini". ATNOtifier only reads it (read-only), so it's safe while N1MM is running.
+#database = C:\Users\you\Documents\N1MM Logger+\Databases\ham.s3db
+
+# Which log in that database: all (every log - "worked before, ever"), current (the log N1MM has open), or a log
+# number. python atnotifier.py --pick lists them; --pick --save-config writes your choice here.
+contest_nr = all
+
+# Where N1MM keeps its ini file, if not in Documents\N1MM Logger+
+#ini = C:\Users\you\Documents\N1MM Logger+\N1MM Logger.ini
+
+[wsjtx]
+# Where WSJT-X sends its UDP messages: WSJT-X Settings > Reporting > UDP Server.
+#
+# WSJT-X sends to one place only, and N1MM's own WSJT-X support listens on port 2237. So WSJT-X sends to
+# ATNOtifier (here, 224.1.1.1 port 2238), and ATNOtifier passes every message on to N1MM (forward, below) and
+# N1MM's replies back to WSJT-X. Don't use 2237 here: that's N1MM's.
+address = 224.1.1.1
+port = 2238
+# for multicast: the network interface to listen on (127.0.0.1 = this computer only); blank for any
+interface = 127.0.0.1
+
+# Pass WSJT-X's messages on to these programs, and their replies back to WSJT-X: HOST:PORT, several separated by
+# spaces (e.g. 127.0.0.1:2237 127.0.0.1:2239 for N1MM and another program). Blank: don't pass them on.
+# --forward HOST:PORT adds one for a run; --no-forward turns this off.
+forward = 127.0.0.1:2237
+
+[atnotifier]
+# true: only look up stations calling you ("YOURCALL THEIRCALL ..."); false: look up the station sending every
+# decoded message, CQs included ("CQ DX K1ABC FN42" -> K1ABC)
+match_my_call = true
+# true: earlier FT4 QSOs on this band count like FT8 ones (so the station is shown in red); false: FT4 counts as
+# another mode, like CW or SSB
+include_ft4 = false
+# true: print every callsign as it's looked up, so you can see ATNOtifier working ("not in log" included);
+# false: print only callsigns already worked. --no-show-lookups and -l / --show-lookups override this.
+show_lookups = true
+# Callsigns to show in colors of your choice, whenever they're decoded: a file beside this one (see
+# atnotifier_colors.txt.example). --colors FILE uses another file.
+callsign_colors = atnotifier_colors.txt
+# true: print every WSJT-X message
+verbose = false

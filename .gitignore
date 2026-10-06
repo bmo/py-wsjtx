@@ -103,6 +103,10 @@ ENV/
 # Jetbrains IDE
 .idea
 
-# dupe_check.py settings are per-station (samples/dupe_check.cfg.example is the template)
+# ATNOtifier settings and callsign colors are per-station (samples/atnotifier.cfg.example is the template);
+# dupe_check.cfg is its old name
+samples/atnotifier.cfg
+samples/atnotifier.cfg.bak
+samples/atnotifier_colors.txt
 samples/dupe_check.cfg
 samples/dupe_check.cfg.bak

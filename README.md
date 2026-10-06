@@ -4,7 +4,7 @@ Developed and tested with Python >= 3.6
 
 Sample programs for:
   * Setting the WSJT-X Grid Square from an external GPS
-  * Coloring callsigns in WSJT-X based on N1MM Logger+ dupe and multiplier status (`samples/dupe_check.py`; setup and use: `samples/dupe_check.md`)
+  * Coloring callsigns in WSJT-X based on N1MM Logger+ dupe and multiplier status (`samples/atnotifier.py`, ATNOtifier - formerly dupe_check; setup and use: `samples/atnotifier.md`)
   * JTAlert-X, N1MM Logger+, WSJT-X packet exchange
   
   
