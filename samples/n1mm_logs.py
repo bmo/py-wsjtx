@@ -1,5 +1,5 @@
 #
-# Finding N1MM Logger+'s databases and the logs in them, for samples that read N1MM's log (e.g. dupe_check.py).
+# Finding N1MM Logger+'s databases and the logs in them, for samples that read N1MM's log (e.g. atnotifier.py).
 #
 # N1MM records its current database and log in "N1MM Logger.ini" ([Configurer] DXLog Name / Contest NR), so a
 # program can follow it without being told; and each database's ContestInstance table lists its logs.
