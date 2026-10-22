@@ -1,0 +1,20 @@
+# ATNOtifier callsign colors. Copy this file to atnotifier_colors.txt (beside atnotifier.cfg) and edit it.
+#
+# One callsign per line, then a background color, and optionally a text color:
+#
+#     CALLSIGN   BACKGROUND   [TEXT]
+#
+# Colors are HTML/CSS names written as one word (red, orange, gold, yellow, lime, green, lightgreen, cyan,
+# skyblue, lightblue, blue, navy, purple, violet, magenta, pink, hotpink, brown, maroon, gray, black, white, ...)
+# or color codes: #RRGGBB (e.g. #ff8800) or #RGB (e.g. #f80). Without a text color, black or white is chosen,
+# whichever reads better on the background.
+#
+# Whenever WSJT-X decodes a message from one of these callsigns - calling you, calling someone else, or calling
+# CQ - ATNOtifier colors it, instead of the usual red for "already worked". The file is re-read when it changes,
+# so it can be edited while ATNOtifier runs. Lines starting with # or ; are comments; ; also starts a comment at
+# the end of a line.
+
+; stations that need us for an All-Time New One
+K1ABC      orange
+W9XYZ      #ff00ff    white     ; asked for a sked on 40m
+JA1AAA     gold
