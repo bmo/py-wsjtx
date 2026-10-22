@@ -563,6 +563,12 @@ def main():
                                                                             pywsjtx.QCOLOR.White(),  # RGBA(255, 50, 137, 48 ),
                                                                             False)
                         s.send_packet(addr_port, color_pkt)
+                    elif dupe_score == 0 and not callsign_colors.get(callsign):   # never worked: black on light green
+                        color_pkt = pywsjtx.HighlightCallsignPacket.Builder(the_packet.wsjtx_id, callsign,
+                                                                            pywsjtx.QCOLOR.RGBA(255, 0xcc, 0xff, 0xcc),
+                                                                            pywsjtx.QCOLOR.Black(),
+                                                                            False)
+                        s.send_packet(addr_port, color_pkt)
 
                     if dupe_score > 0:
                         # WSJT-X caps scores at 50000; it shows them in Fox mode's Score column and sorts lowest first
