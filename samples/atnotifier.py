@@ -4,8 +4,9 @@
 #
 # For each callsign WSJT-X decodes, this looks it up in N1MM's log and scores how "worked" it is: QSOs on the
 # current band in FT8 count most, other modes on this band less, other bands least. WSJT-X then shows callsigns
-# already worked in FT8 on this band in red, and sorts the rest by score. Callsigns listed in atnotifier_colors.txt
-# are shown in the color given there, whenever they're decoded.
+# already worked in FT8 on this band in black on gray (or the duplicate_background / duplicate_foreground colors in
+# atnotifier.cfg), and sorts the rest by score. Callsigns listed in atnotifier_colors.txt are shown in the color
+# given there, whenever they're decoded.
 #
 # Settings are in atnotifier.cfg (copy atnotifier.cfg.example). With no settings it follows N1MM: it reads N1MM's
 # current database from "N1MM Logger.ini" and checks every log in it.
@@ -55,8 +56,11 @@ DEFAULTS = {
         'verbose': 'false',        # true: print every WSJT-X message
         'show_lookups': 'true',    # true: print every callsign as it's looked up; false: only ones already worked
         'callsign_colors': 'atnotifier_colors.txt',  # callsigns to show in a color of your choice (beside the config file)
+        'duplicate_background': 'gray',   # duplicates (already worked in FT8 on this band): the background color...
+        'duplicate_foreground': 'black',  # ...and the text color; blank: black or white, whichever reads better
     },
 }
+COLOR_SETTINGS = ('duplicate_background', 'duplicate_foreground')
 
 
 def load_config(path):
@@ -72,6 +76,17 @@ def load_config(path):
                 config.add_section(target)
             for key, value in from_file.items(section):
                 config.set(target, key, value)
+        # Color codes start with #, which the parser above takes for a comment ("= #ff8800" would read as blank),
+        # so read the color settings again with only ; starting a comment, and take the first word
+        colors_from_file = configparser.RawConfigParser(inline_comment_prefixes=(';',))
+        colors_from_file.read(path)
+        for section in colors_from_file.sections():
+            target = 'atnotifier' if section == 'dupe_check' and not colors_from_file.has_section('atnotifier') else section
+            if target == 'atnotifier':
+                for key in COLOR_SETTINGS:
+                    if colors_from_file.has_option(section, key):
+                        words = colors_from_file.get(section, key).split()
+                        config.set(target, key, words[0] if words and len(words[0]) > 1 else '')
     return config
 
 
@@ -134,6 +149,23 @@ def read_callsign_colors(path):
                 continue
             colors[words[0].strip('<>').upper()] = (background, text)
     return colors, problems
+
+
+def duplicate_colors(config):
+    """ (background, text) colors for duplicates, from duplicate_background and duplicate_foreground in
+        [atnotifier]; ValueError naming the setting if one isn't a color. """
+    colors = {}
+    for key in COLOR_SETTINGS:
+        value = config.get('atnotifier', key).strip()
+        if key == 'duplicate_foreground' and not value:
+            colors[key] = text_color_for(colors['duplicate_background'])
+            continue
+        try:
+            colors[key] = parse_color(value)
+        except ValueError:
+            raise ValueError("{key} = {value}: not a color name (e.g. red) or a color code (e.g. #ff0000)".format(
+                key=key, value=value or '(blank)'))
+    return colors['duplicate_background'], colors['duplicate_foreground']
 
 
 class CallsignColors(object):
@@ -407,6 +439,10 @@ def main():
     show_lookups = args.show_lookups if args.show_lookups is not None else config.getboolean('atnotifier', 'show_lookups')
     match_my_call = config.getboolean('atnotifier', 'match_my_call')
     same_modes = ('FT8', 'FT4') if config.getboolean('atnotifier', 'include_ft4') else ('FT8',)
+    try:
+        duplicate_background, duplicate_foreground = duplicate_colors(config)
+    except ValueError as e:
+        sys.exit("{cfg}: {e}".format(cfg=args.config, e=e))
 
     database, contest_nr, which = choose_log(config, args.config, args.pick)
     if args.save_config:
@@ -557,10 +593,10 @@ def main():
                     if dupe_score > 0 or show_lookups or verbose:
                         print(lookup_line(callsign, band, dupe_score, dupe_tuples), flush=True)
 
-                    if dupe_score >= 2000 and not callsign_colors.get(callsign):   # a listed color wins over red
+                    if dupe_score >= 2000 and not callsign_colors.get(callsign):   # a listed color wins over the duplicate color
                         color_pkt = pywsjtx.HighlightCallsignPacket.Builder(the_packet.wsjtx_id, callsign,
-                                                                            pywsjtx.QCOLOR.Red(),
-                                                                            pywsjtx.QCOLOR.White(),  # RGBA(255, 50, 137, 48 ),
+                                                                            duplicate_background,
+                                                                            duplicate_foreground,
                                                                             False)
                         s.send_packet(addr_port, color_pkt)
                     elif dupe_score == 0 and not callsign_colors.get(callsign):   # never worked: black on light green

@@ -10,7 +10,7 @@
 # whichever reads better on the background.
 #
 # Whenever WSJT-X decodes a message from one of these callsigns - calling you, calling someone else, or calling
-# CQ - ATNOtifier colors it, instead of the usual red for "already worked". The file is re-read when it changes,
+# CQ - ATNOtifier colors it, instead of the usual gray for "already worked". The file is re-read when it changes,
 # so it can be edited while ATNOtifier runs. Lines starting with # or ; are comments; ; also starts a comment at
 # the end of a line.
 

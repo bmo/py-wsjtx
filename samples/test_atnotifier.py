@@ -146,5 +146,54 @@ class CallsignColors(unittest.TestCase):
         self.assertEqual(config.get('atnotifier', 'callsign_colors'), 'atnotifier_colors.txt')
 
 
+class DuplicateColors(unittest.TestCase):
+    def rgb(self, color):
+        return (color.red, color.green, color.blue)
+
+    def colors_from(self, text):
+        import os, tempfile
+        path = os.path.join(tempfile.mkdtemp(), 'atnotifier.cfg')
+        with open(path, 'w') as f:
+            f.write(text)
+        return atnotifier.duplicate_colors(atnotifier.load_config(path))
+
+    def test_default_is_black_on_gray(self):
+        for text in ('', '[atnotifier]\nmatch_my_call = false\n'):
+            background, foreground = self.colors_from(text)
+            self.assertEqual(self.rgb(background), (128, 128, 128))
+            self.assertEqual(self.rgb(foreground), (0, 0, 0))
+            self.assertEqual((background.spec, background.alpha), (atnotifier.pywsjtx.QCOLOR.SPEC_RGB, 255))
+
+    def test_names_and_codes_with_comments(self):
+        background, foreground = self.colors_from("[atnotifier]\n"
+                                                  "duplicate_background = #ff8800   # orange-ish\n"
+                                                  "duplicate_foreground = Navy ; dark\n")
+        self.assertEqual(self.rgb(background), (0xff, 0x88, 0x00))
+        self.assertEqual(self.rgb(foreground), (0, 0, 0x80))
+
+    def test_one_set_other_default(self):
+        background, foreground = self.colors_from("[atnotifier]\nduplicate_background = #00f\n")
+        self.assertEqual(self.rgb(background), (0, 0, 255))
+        self.assertEqual(self.rgb(foreground), (0, 0, 0))
+
+    def test_blank_foreground_contrasts(self):
+        for value in ('', '   # pick one for me'):
+            _, foreground = self.colors_from("[atnotifier]\nduplicate_background = yellow\n"
+                                             "duplicate_foreground =" + value + "\n")
+            self.assertEqual(self.rgb(foreground), (0, 0, 0), value)
+
+    def test_old_config_section(self):
+        background, _ = self.colors_from("[dupe_check]\nduplicate_background = gold\n")
+        self.assertEqual(self.rgb(background), (255, 215, 0))
+
+    def test_bad_color_names_the_setting(self):
+        for text, setting in (("duplicate_background = notacolor", 'duplicate_background'),
+                              ("duplicate_background =", 'duplicate_background'),
+                              ("duplicate_foreground = #12345", 'duplicate_foreground')):
+            with self.assertRaises(ValueError) as raised:
+                self.colors_from("[atnotifier]\n" + text + "\n")
+            self.assertIn(setting, str(raised.exception))
+
+
 if __name__ == '__main__':
     unittest.main()
