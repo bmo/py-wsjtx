@@ -4,7 +4,8 @@ ATNOtifier (`atnotifier.py`, formerly dupe_check) helps stations who need you fo
 your log. It watches what WSJT-X decodes, looks each calling station up in your N1MM Logger+ log, and tells
 WSJT-X how "worked" it is:
 
-- **red** callsign: already worked in FT8 on this band (or FT4, with `include_ft4 = true`)
+- **gray** callsign (black text on gray): already worked in FT8 on this band (or FT4, with `include_ft4 = true`); change the color
+  with `duplicate_background` and `duplicate_foreground` (see "Duplicate colors" below)
 - **your own colors** for callsigns you list in `atnotifier_colors.txt` (see "Callsign colors" below)
 - a **score** for each worked station, shown in the Score column of WSJT-X's Fox-mode "Stations calling" list and
   used by its *Score* sort (lowest first, so unworked stations come first)
@@ -21,7 +22,7 @@ Scores are added up and capped at 50000 (WSJT-X's limit). Stations not in the lo
 
 - Python 3.6 or later, run from this `samples` folder (it uses the `pywsjtx` package one level up).
 - N1MM Logger+. ATNOtifier only *reads* its database, through a read-only connection, so N1MM can be running.
-- WSJT-X. Red highlights work with stock WSJT-X. **The Score column needs a patched WSJT-X**: through at least
+- WSJT-X. Highlights work with stock WSJT-X. **The Score column needs a patched WSJT-X**: through at least
   3.2.0-rc1, WSJT-X receives the scores but never stores them, so the column always shows "-". The patch
   (`wsjtx-3.0.2-annotation-info.patch`, against v3.0.2) connects them.
 
@@ -39,7 +40,7 @@ only **one** program on the computer receives it, so ATNOtifier can't share it w
 | UDP Server port number | `2238` (see "N1MM and port 2237" below) |
 | Outgoing interfaces | include the loopback interface |
 
-In our tests the red highlights worked with "Accept UDP requests" off; the scores were tested with it on, so
+In our tests the highlights worked with "Accept UDP requests" off; the scores were tested with it on, so
 turn it on if scores don't appear.
 
 ## 2. Make a config file that matches
@@ -118,10 +119,26 @@ codes like `#ff8800` or `#f80`. Lines starting with `#` or `;` are comments.
 
 Whenever WSJT-X decodes a message from a listed station - calling you, calling someone else, or calling CQ -
 ATNOtifier colors it, even if `match_my_call` limits the log lookups to stations calling you. A listed color
-takes the place of the red "already worked" highlight; the station's score is still sent. The file is re-read
+takes the place of the "already worked" highlight; the station's score is still sent. The file is re-read
 when it changes, so you can add stations while ATNOtifier runs.
 
 Use another file with `--colors FILE`, or `callsign_colors` in `[atnotifier]`.
+
+## Duplicate colors
+
+Duplicates - stations already worked in FT8 on this band - are shown as black text on gray. To change that, set
+the background and text colors in `[atnotifier]` in `atnotifier.cfg`:
+
+```
+[atnotifier]
+duplicate_background = #ff8800
+duplicate_foreground = black
+```
+
+Colors are written as in the callsign colors file: names (`red`, `gold`, `navy`, ...) or codes (`#ff8800`,
+`#f80`). Leave `duplicate_foreground` blank for black or white, whichever reads better on the background. They're
+read when ATNOtifier starts, so restart it after changing them. A callsign listed in `atnotifier_colors.txt`
+keeps its own color.
 
 ## N1MM and port 2237
 

@@ -34,7 +34,7 @@ forward = 127.0.0.1:2237
 # true: only look up stations calling you ("YOURCALL THEIRCALL ..."); false: look up the station sending every
 # decoded message, CQs included ("CQ DX K1ABC FN42" -> K1ABC)
 match_my_call = true
-# true: earlier FT4 QSOs on this band count like FT8 ones (so the station is shown in red); false: FT4 counts as
+# true: earlier FT4 QSOs on this band count like FT8 ones (so the station is shown as a duplicate); false: FT4 counts as
 # another mode, like CW or SSB
 include_ft4 = false
 # true: print every callsign as it's looked up, so you can see ATNOtifier working ("not in log" included);
@@ -43,5 +43,10 @@ show_lookups = true
 # Callsigns to show in colors of your choice, whenever they're decoded: a file beside this one (see
 # atnotifier_colors.txt.example). --colors FILE uses another file.
 callsign_colors = atnotifier_colors.txt
+# Colors for duplicates - stations already worked in FT8 on this band: the background, and the text (foreground).
+# HTML/CSS color names written as one word (red, orange, gold, navy, ...) or codes: #RRGGBB (e.g. #ff8800) or
+# #RGB. Leave duplicate_foreground blank for black or white, whichever reads better on the background.
+duplicate_background = gray
+duplicate_foreground = black
 # true: print every WSJT-X message
 verbose = false
